@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { after, before, describe, test } from 'node:test'
 
 const PROJECT = 'demo-simantap'
-const DB = 'siman-simulasi'
+const DB = 'siman'
 const FS = process.env.FIRESTORE_EMULATOR_HOST || '127.0.0.1:8080'
 const AUTH = process.env.FIREBASE_AUTH_EMULATOR_HOST || '127.0.0.1:9099'
 Object.assign(process.env, {

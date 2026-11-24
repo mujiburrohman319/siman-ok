@@ -10,6 +10,6 @@ runConfig:
 
 env:
   - variable: VITE_FIRESTORE_DB
-    value: siman-simulasi
+    value: siman
     availability:
       - BUILD

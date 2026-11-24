@@ -26,7 +26,7 @@ Deploy App Hosting: `apphosting.yaml` + `server.js` (tanpa dependensi). `vite.co
 ## Stack dan prinsip
 
 - React 18 + Vite 6 + Tailwind 4, react-router 6, lucide-react.
-- Firebase Auth (email/kata sandi + Google) + Cloud Firestore named database `siman-simulasi`.
+- Firebase Auth (email/kata sandi + Google) + Cloud Firestore named database `siman`.
   Masuk Google: popup, beralih ke redirect bila diblokir; pengguna tanpa profil diarahkan ke "Lengkapi profil".
 - **100% online**: Firestore satu-satunya sumber data. Jangan menambah localStorage/mode offline untuk data.
 - Antarmuka dan istilah berbahasa Indonesia, mengikuti PP 27/2014 jo. PP 28/2020, PMK 150/2014, PMK 181/2016.
