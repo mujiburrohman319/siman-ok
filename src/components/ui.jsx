@@ -80,8 +80,9 @@ const BADGE = {
   amber: 'bg-amber-50 text-amber-800 ring-amber-200',
   rose: 'bg-rose-50 text-rose-700 ring-rose-200',
   blue: 'bg-sky-50 text-sky-800 ring-sky-200',
+  violet: 'bg-violet-50 text-violet-800 ring-violet-200',
 }
-const DOT = { slate: 'bg-slate-400', teal: 'bg-brand-500', amber: 'bg-amber-500', rose: 'bg-rose-500', blue: 'bg-sky-500' }
+const DOT = { slate: 'bg-slate-400', teal: 'bg-brand-500', amber: 'bg-amber-500', rose: 'bg-rose-500', blue: 'bg-sky-500', violet: 'bg-violet-500' }
 export const Badge = ({ tone = 'slate', children }) => (
   <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${BADGE[tone]}`}>
     <span className={`h-1.5 w-1.5 rounded-full ${DOT[tone]}`} />

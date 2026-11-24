@@ -8,7 +8,14 @@ service cloud.firestore {
 
     function signedIn() { return request.auth != null; }
     function me() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
-    function isStaff() { return signedIn() && me().role in ['pengelola', 'admin']; }
+    // Dosen awal: email terverifikasi berikut selalu berperan Pengelola Barang (tanpa Firebase Console).
+    // WAJIB sama dengan DOSEN_AWAL di src/lib/akses.js (dijaga tests/akses.test.js).
+    function dosenAwal() {
+      return signedIn()
+        && request.auth.token.get('email_verified', false) == true
+        && request.auth.token.get('email', '').lower() in ['mujiburrohman319@gmail.com'];
+    }
+    function isStaff() { return signedIn() && (dosenAwal() || me().role in ['pengelola', 'admin']); }
     function satkerDoc(s) { return get(/databases/$(database)/documents/satker/$(s)).data; }
     function isMember(s) { return signedIn() && request.auth.uid in satkerDoc(s).anggota; }
     function isApip(s) { return signedIn() && request.auth.uid in satkerDoc(s).get('apipUids', []); }
@@ -31,13 +38,17 @@ service cloud.firestore {
 
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isStaff());
-      // Pendaftaran mandiri selalu sebagai mahasiswa (kpb) tanpa satker
+      // Pendaftaran mandiri sebagai mahasiswa (kpb) tanpa satker; dosen awal terverifikasi boleh langsung pengelola
       allow create: if signedIn() && request.auth.uid == uid
-        && request.resource.data.role == 'kpb'
-        && !('satkerId' in request.resource.data);
-      // Mahasiswa hanya boleh mengubah nama/NIM sendiri
-      allow update: if isStaff() || (request.auth.uid == uid
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nama', 'nim']));
+        && !('satkerId' in request.resource.data)
+        && (request.resource.data.role == 'kpb' || (request.resource.data.role == 'pengelola' && dosenAwal()));
+      // Dosen mengubah siapa pun, tetapi tidak dapat menurunkan peran dirinya sendiri.
+      // Pengguna lain hanya mengubah nama/NIM dan menandai email terverifikasi sesuai token.
+      allow update: if (isStaff()
+          && !(request.auth.uid == uid && !(request.resource.data.role in ['pengelola', 'admin'])))
+        || (request.auth.uid == uid
+          && berubah().hasOnly(['nama', 'nim', 'emailTerverifikasi'])
+          && request.resource.data.get('emailTerverifikasi', false) == request.auth.token.get('email_verified', false));
       allow delete: if isStaff();
     }
 

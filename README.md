@@ -14,7 +14,8 @@ Kuasa Pengguna Barang pada satker simulasi; dosen berperan sebagai Pengelola Bar
 3. `npm install && npm run dev`
 4. Terapkan aturan keamanan dan indeks: `firebase use <project-id>` lalu
    `firebase deploy --only firestore:rules,firestore:indexes`.
-5. Daftar akun pertama, lalu ubah `users/{uid}.role` menjadi `pengelola` di Firestore Console.
+5. Dosen awal (`mujiburrohman319@gmail.com`, diatur di `src/lib/akses.js` dan `firestore.rules`) cukup mendaftar
+   di halaman masuk lalu memverifikasi email; peran Pengelola Barang aktif otomatis. Dosen lain diatur di menu **Pengguna**.
 6. Sebagai dosen: menu **Kelas & Satker** → buat kelas → tambah satker → tambah email mahasiswa → *Isi data contoh*.
 
 Deploy:
