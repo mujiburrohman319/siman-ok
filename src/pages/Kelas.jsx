@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { collection, doc, getDocs, limit, query, updateDoc, where } from 'firebase/firestore'
+import { Link } from 'react-router-dom'
+import { collection, getDocs, limit, query, where } from 'firebase/firestore'
 import { db } from '../lib/firebase.js'
 import { useAuth } from '../lib/auth.jsx'
 import { useSatker } from '../lib/satker.jsx'
 import { useCollection } from '../lib/hooks.js'
 import { buatKelas, buatSatker, cariUserByEmail, isiDataContoh, tambahAnggota } from '../lib/db.js'
 import { Alert, Badge, Button, Card, Field, Input, PageHeader, Select, Table, Td } from '../components/ui.jsx'
-import { useKonfirmasi, useToast } from '../components/umpan.jsx'
 
 export default function Kelas() {
   const { user } = useAuth()
@@ -38,7 +38,7 @@ export default function Kelas() {
             </div>
             <Button type="submit">Buat kelas</Button>
           </form>
-          <PromosiDosen />
+          <p className="mt-5 border-t border-slate-100 pt-4 text-xs text-slate-500">Dosen/asisten baru dan perpindahan mahasiswa diatur di menu <Link to="/pengguna" className="font-medium text-brand-700 hover:underline">Pengguna</Link>.</p>
         </Card>
         <div className="lg:col-span-2">{kelasId ? <DaftarSatker kelasId={kelasId} /> : <Alert tone="slate">Buat kelas terlebih dahulu.</Alert>}</div>
       </div>
@@ -118,29 +118,5 @@ function BarisSatker({ s, anggota }) {
       </form>
       {pesan && <div className="mt-2"><Alert tone={pesan.tone}>{pesan.teks}</Alert></div>}
     </div>
-  )
-}
-
-function PromosiDosen() {
-  const [email, setEmail] = useState('')
-  const [pesan, setPesan] = useState('')
-  const toast = useToast()
-  const konfirmasi = useKonfirmasi()
-  return (
-    <form className="mt-5 space-y-2 border-t border-slate-100 pt-4" onSubmit={async (e) => {
-      e.preventDefault()
-      setPesan('')
-      const u = await cariUserByEmail(email)
-      if (!u) return setPesan('Email belum terdaftar.')
-      if (!(await konfirmasi({ judul: `Jadikan ${u.nama} Pengelola Barang?`, pesan: 'Pengguna ini akan dapat melihat dan mengubah data semua satker, menelaah RKBMN, dan memutus usulan.', ya: 'Jadikan dosen' }))) return
-      await updateDoc(doc(db, 'users', u.id), { role: 'pengelola' })
-      toast.sukses(`${u.nama} sekarang berperan sebagai Pengelola Barang (dosen).`)
-      setEmail('')
-    }}>
-      <p className="text-sm font-medium text-slate-700">Tambah dosen / asisten</p>
-      <Input type="email" required placeholder="email yang sudah terdaftar" value={email} onChange={(e) => setEmail(e.target.value)} />
-      <Button type="submit" variant="secondary">Jadikan Pengelola Barang</Button>
-      {pesan && <p className="text-xs text-slate-600">{pesan}</p>}
-    </form>
   )
 }

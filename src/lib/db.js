@@ -1,7 +1,7 @@
 // Lapisan data Firestore. Semua penulisan aset + transaksi dilakukan atomik (runTransaction)
 // sehingga Daftar Barang dan Buku Barang selalu konsisten.
 import {
-  addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, runTransaction, serverTimestamp, setDoc, updateDoc, where, writeBatch, arrayUnion,
+  addDoc, collection, deleteDoc, deleteField, doc, getDoc, getDocs, query, runTransaction, serverTimestamp, setDoc, updateDoc, where, writeBatch, arrayRemove, arrayUnion,
 } from 'firebase/firestore'
 import { db } from './firebase.js'
 import { terapkanTransaksi, aksiPersetujuan, REFERENSI_DEFAULT, TransaksiError } from './bmn.js'
@@ -48,6 +48,34 @@ export async function ubahAtributAset(satkerId, asetId, patch) {
 // ---------------------------------------------------------------- akun & kelas
 export async function buatProfil(uid, { nama, nim, email }) {
   await setDoc(doc(db, 'users', uid), { nama, nim: nim || '', email, role: 'kpb', createdAt: serverTimestamp() })
+}
+
+/** Simpan hasil sinkronProfil() (src/lib/akses.js) untuk pengguna yang sedang masuk. */
+export async function simpanSinkronProfil(uid, patch) {
+  await updateDoc(doc(db, 'users', uid), patch)
+}
+
+// ---------------------------------------------------------------- panel Pengguna (dosen)
+export async function ubahPeran(uid, role) {
+  await updateDoc(doc(db, 'users', uid), { role, peranDiubah: serverTimestamp() })
+}
+
+/**
+ * Pindahkan pengguna ke satker lain (satkerBaru = null → keluarkan dari satker dan kelas).
+ * Satu batch: anggota satker lama dihapus (termasuk peran APIP), satker baru ditambah.
+ */
+export async function pindahkanAnggota(user, satkerBaru, { apip = false } = {}) {
+  const b = writeBatch(db)
+  if (user.satkerId && user.satkerId !== satkerBaru?.id) {
+    b.update(doc(db, 'satker', user.satkerId), { anggota: arrayRemove(user.id), apipUids: arrayRemove(user.id) })
+  }
+  if (satkerBaru) {
+    b.update(doc(db, 'satker', satkerBaru.id), { anggota: arrayUnion(user.id), apipUids: apip ? arrayUnion(user.id) : arrayRemove(user.id) })
+    b.update(doc(db, 'users', user.id), { satkerId: satkerBaru.id, kelasId: satkerBaru.kelasId })
+  } else {
+    b.update(doc(db, 'users', user.id), { satkerId: deleteField(), kelasId: deleteField() })
+  }
+  await b.commit()
 }
 
 export async function buatKelas(data, uid) {

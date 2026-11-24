@@ -2,12 +2,13 @@ import { Suspense, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   LayoutDashboard, Boxes, ArrowLeftRight, FileBarChart, ClipboardList, Send, ScanSearch, Gavel, School, Settings2, LogOut, Menu, X,
-  FlaskConical, Building2, ChevronsUpDown, ShieldCheck, BookOpenCheck, Package, GitCompareArrows,
+  FlaskConical, Building2, ChevronsUpDown, ShieldCheck, BookOpenCheck, Package, GitCompareArrows, Users,
 } from 'lucide-react'
 import { useAuth } from '../lib/auth.jsx'
 import { useSatker } from '../lib/satker.jsx'
 import { useCollection } from '../lib/hooks.js'
 import { Loading } from './ui.jsx'
+import BannerVerifikasi from './BannerVerifikasi.jsx'
 
 const MENU = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -28,6 +29,7 @@ const MENU_DOSEN = [
   { grup: 'Pengelola Barang (Dosen)' },
   { to: '/telaah', label: 'Penelaahan & Persetujuan', icon: Gavel },
   { to: '/kelas', label: 'Kelas & Satker', icon: School },
+  { to: '/pengguna', label: 'Pengguna', icon: Users },
   { to: '/referensi', label: 'Referensi', icon: Settings2 },
 ]
 
@@ -145,6 +147,7 @@ export default function Layout() {
           </div>
         </header>
         <main className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6 lg:p-8 print:max-w-none print:p-0">
+          <BannerVerifikasi />
           <Suspense fallback={<Loading />}>
             <Outlet />
           </Suspense>

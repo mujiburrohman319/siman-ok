@@ -358,3 +358,45 @@ describe('impor kodefikasi resmi', () => {
     assert.equal((await getDoc(doc(db, 'referensi', 'kodefikasi'))).exists(), false)
   })
 })
+
+describe('dosen awal tanpa Firebase Console', () => {
+  test('daftar → verifikasi email → otomatis pengelola → kelola pengguna', async () => {
+    const { sinkronProfil } = await import('../../src/lib/akses.js')
+    const email = 'mujiburrohman319@gmail.com'
+    const u = (await createUserWithEmailAndPassword(auth, email, SANDI)).user
+    await lib.buatProfil(u.uid, { nama: 'Dosen Awal', nim: '', email })
+    assert.equal(sinkronProfil(u, { role: 'kpb' }), null) // belum terverifikasi
+    await ditolak(getDocs(collection(db, 'satker')))
+
+    // Setara mengeklik tautan verifikasi di email
+    const r = await fetch(`http://${AUTH}/identitytoolkit.googleapis.com/v1/projects/${PROJECT}/accounts:update`, {
+      method: 'POST', headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ localId: u.uid, emailVerified: true }),
+    })
+    assert.equal(r.status, 200, await r.text())
+    await auth.currentUser.reload()
+    await auth.currentUser.getIdToken(true)
+    const profil = (await getDoc(doc(db, 'users', u.uid))).data()
+    const patch = sinkronProfil(auth.currentUser, profil)
+    assert.deepEqual(patch, { emailTerverifikasi: true, role: 'pengelola' })
+    await lib.simpanSinkronProfil(u.uid, patch)
+    assert.equal((await getDoc(doc(db, 'users', u.uid))).data().role, 'pengelola')
+
+    // Panel Pengguna: pindahkan mhs2 ke satker 1 sebagai APIP, lalu keluarkan; promosikan & turunkan
+    const mhs2 = { id: uid.mhs2, ...(await getDoc(doc(db, 'users', uid.mhs2))).data() }
+    await lib.pindahkanAnggota(mhs2, { id: s1.id, kelasId: s1.kelasId }, { apip: true })
+    let sat1 = (await getDoc(doc(db, 'satker', s1.id))).data()
+    assert.ok(sat1.anggota.includes(uid.mhs2) && sat1.apipUids.includes(uid.mhs2))
+    assert.ok(!(await getDoc(doc(db, 'satker', s2.id))).data().anggota.includes(uid.mhs2))
+    await lib.pindahkanAnggota({ ...mhs2, satkerId: s1.id }, { id: s1.id, kelasId: s1.kelasId }, { apip: false })
+    assert.ok(!(await getDoc(doc(db, 'satker', s1.id))).data().apipUids.includes(uid.mhs2))
+    await lib.pindahkanAnggota({ ...mhs2, satkerId: s1.id }, null)
+    const m2 = (await getDoc(doc(db, 'users', uid.mhs2))).data()
+    assert.equal(m2.satkerId, undefined)
+    sat1 = (await getDoc(doc(db, 'satker', s1.id))).data()
+    assert.ok(!sat1.anggota.includes(uid.mhs2))
+    await lib.ubahPeran(uid.mhs2, 'pengelola')
+    await lib.ubahPeran(uid.mhs2, 'kpb')
+    await ditolak(lib.ubahPeran(u.uid, 'kpb')) // tidak dapat menurunkan diri sendiri
+  })
+})

@@ -44,18 +44,19 @@ Deploy App Hosting: `apphosting.yaml` + `server.js` (tanpa dependensi). `vite.co
 | `src/lib/lampiran.js` | Validasi & pemotongan berkas lampiran (base64 di Firestore). |
 | `src/lib/ekspor.js` | Penulis .xlsx (fflate) dan PDF (jsPDF, dimuat saat dibutuhkan). Dipakai lewat `<TombolEkspor>`. |
 | `src/lib/db.js` | Penulisan Firestore. `catatTransaksi()`/`catatMutasiPersediaan()` memakai `runTransaction` agar data induk dan bukunya selalu konsisten. |
-| `src/lib/auth.jsx` | Login, profil `users/{uid}`, peran, referensi aktif (`referensi/config` digabung dengan `REFERENSI_DEFAULT`). |
+| `src/lib/akses.js` | Peran, daftar dosen awal (`DOSEN_AWAL`), sinkron profil setelah verifikasi email, aturan ubah peran. |
+| `src/lib/auth.jsx` | Login, verifikasi email, profil `users/{uid}`, peran, referensi aktif (`referensi/config` digabung dengan `REFERENSI_DEFAULT`). |
 | `src/lib/satker.jsx` | Satker aktif (mahasiswa: miliknya; dosen: dipilih di header) + langganan realtime aset & transaksi. |
 | `src/data/kodeBarang.js` | Kodefikasi barang **contoh** + registri kodefikasi aktif (hasil impor CSV). Pakai `cariKode()`/`daftarKode()`, jangan `KODE_BARANG` langsung. |
 | `src/components/ui.jsx`, `umpan.jsx` | Komponen dasar (Card, Table, Tabs, Paging, TombolEkspor…), toast `useToast()`, dialog `useKonfirmasi()`. Aksi yang tidak dapat dibatalkan wajib dikonfirmasi. |
 | `src/data/kib.js` | Field KIB per jenis. |
-| `src/pages/*` | Dashboard, Skenario (soal/penilaian), Aset/KIB, Transaksi (Buku Barang), Persediaan, Inventarisasi, Laporan (LBKP, Neraca BMN, DBKP, Intra/Ekstra, DBR, RB/Hilang, PNBP), Rekonsiliasi, Wasdal, RKBMN, Usulan, Telaah (dosen), Kelas, Referensi. Halaman dimuat per bagian (`React.lazy` di `App.jsx`). |
+| `src/pages/*` | Dashboard, Skenario (soal/penilaian), Aset/KIB, Transaksi (Buku Barang), Persediaan, Inventarisasi, Laporan (LBKP, Neraca BMN, DBKP, Intra/Ekstra, DBR, RB/Hilang, PNBP), Rekonsiliasi, Wasdal, RKBMN, Usulan, Telaah (dosen), Kelas, Pengguna (dosen), Referensi. Halaman dimuat per bagian (`React.lazy` di `App.jsx`). |
 | `firestore.rules` | Keamanan per peran. Transaksi tidak bisa diubah/dihapus (jejak audit). |
 
 ## Model data Firestore
 
 ```
-users/{uid}            nama, nim, email, role: kpb|pengelola|admin, kelasId, satkerId
+users/{uid}            nama, nim, email, role: kpb|pengelola|admin, kelasId, satkerId, emailTerverifikasi
 kelas/{id}             nama, mk, tahunAkademik, semester, dosenUid
 referensi/config       batasKapitalisasi{peralatan,gedung}, batasPemeliharaan, sbsk[], tahunAnggaran
 referensi/kodefikasi   jumlah, jumlahBagian, sumber   (+ referensi/kodefikasi_{i}: daftar[] ≤2.500 kode)
@@ -101,10 +102,15 @@ dengan field `kelasId` agar aturan keamanan dan query lebih sederhana.
    membaca keanggotaan satker di named database). Lampiran transaksi tidak dapat dihapus.
 8. Aturan bisnis baru → fungsi murni di `src/lib/*.js` + uji di `tests/`; perubahan rules/db → uji di `tests/emulator/`.
 
-## Bootstrap dosen pertama
+## Bootstrap dosen pertama (tanpa Firebase Console)
 
-Daftar lewat halaman masuk, lalu di Firebase Console ubah `users/{uid}.role` menjadi `pengelola`.
-Dosen berikutnya dapat dipromosikan dari menu Kelas & Satker.
+Email di `DOSEN_AWAL` (`src/lib/akses.js`) — saat ini `mujiburrohman319@gmail.com` — otomatis berperan
+Pengelola Barang setelah **emailnya terverifikasi**: daftar di halaman masuk → klik tautan verifikasi →
+"Saya sudah verifikasi". Daftar yang sama ada di fungsi `dosenAwal()` di `firestore.rules`; keduanya wajib
+sama (dijaga `tests/akses.test.js`) dan rules harus di-deploy agar berlaku. Verifikasi wajib karena
+pendaftaran email/kata sandi tidak membuktikan kepemilikan email.
+Dosen/asisten berikutnya, penurunan peran, dan penempatan satker diatur di menu **Pengguna** (`src/pages/Pengguna.jsx`).
+Dosen tidak dapat menurunkan perannya sendiri; dosen awal tidak dapat diturunkan dari panel.
 
 ## Status terhadap PRD
 

@@ -371,3 +371,37 @@ describe('lampiran', () => {
     await assertSucceeds(apip1().doc(`satker/s1/lampiran/${a}/potong/0`).get())
   })
 })
+
+describe('dosen awal & panel Pengguna', () => {
+  const DOSEN = 'mujiburrohman319@gmail.com'
+  const ctx = (uid, email, verified) => env.authenticatedContext(uid, { email, email_verified: verified }).firestore()
+  test('dosen awal terverifikasi boleh langsung membuat profil pengelola; yang belum/lain tidak', async () => {
+    await assertFails(ctx('d1', DOSEN, false).doc('users/d1').set({ nama: 'D', email: DOSEN, role: 'pengelola' }))
+    await assertFails(ctx('x1', 'orang@lain.id', true).doc('users/x1').set({ nama: 'X', email: 'orang@lain.id', role: 'pengelola' }))
+    await assertFails(ctx('x2', 'MujiburRohman319@gmail.com.palsu.id', true).doc('users/x2').set({ nama: 'X', role: 'pengelola' }))
+    await assertSucceeds(ctx('d1', 'MujiburRohman319@Gmail.com', true).doc('users/d1').set({ nama: 'D', email: DOSEN, role: 'pengelola' }))
+  })
+  test('dosen awal berprofil mahasiswa: akses dosen aktif setelah verifikasi, lalu menaikkan perannya sendiri', async () => {
+    await env.withSecurityRulesDisabled((c) => c.firestore().doc('users/d2').set({ nama: 'D', email: DOSEN, role: 'kpb' }))
+    await assertFails(ctx('d2', DOSEN, false).doc('satker/s2').get())
+    await assertFails(ctx('d2', DOSEN, false).doc('users/d2').update({ role: 'pengelola' }))
+    await assertSucceeds(ctx('d2', DOSEN, true).doc('satker/s2').get())
+    await assertSucceeds(ctx('d2', DOSEN, true).doc('users/d2').update({ role: 'pengelola', emailTerverifikasi: true }))
+  })
+  test('dosen tidak dapat menurunkan perannya sendiri, tetapi dapat mengubah peran orang lain', async () => {
+    await assertFails(dosen().doc('users/dosen').update({ role: 'kpb' }))
+    await assertSucceeds(dosen().doc('users/dosen').update({ nama: 'Dosen Baru' }))
+    await assertSucceeds(dosen().doc('users/mhs2').update({ role: 'pengelola' }))
+    await assertSucceeds(dosen().doc('users/mhs2').update({ role: 'kpb' }))
+  })
+  test('mahasiswa menandai email terverifikasi hanya sesuai token', async () => {
+    await assertFails(ctx('mhs1', 'm1@x.test', false).doc('users/mhs1').update({ emailTerverifikasi: true }))
+    await assertSucceeds(ctx('mhs1', 'm1@x.test', true).doc('users/mhs1').update({ emailTerverifikasi: true }))
+    await assertFails(ctx('mhs1', 'm1@x.test', true).doc('users/mhs1').update({ role: 'pengelola' }))
+  })
+  test('dosen memindahkan mahasiswa antar-satker; mahasiswa tidak dapat memindahkan dirinya', async () => {
+    const pindah = (db) => { const b = db.batch(); b.update(db.doc('satker/s1'), { anggota: ['apip1'] }); b.update(db.doc('satker/s2'), { anggota: ['mhs2', 'mhs1'] }); b.update(db.doc('users/mhs1'), { satkerId: 's2' }); return b.commit() }
+    await assertFails(pindah(mhs1()))
+    await assertSucceeds(pindah(dosen()))
+  })
+})
