@@ -1,0 +1,15 @@
+# Firebase App Hosting: build `npm run build`, jalankan `npm start` (server.js menyajikan dist/ di $PORT).
+# Konfigurasi web Firebase (apiKey, projectId, dst.) disediakan otomatis oleh App Hosting saat build
+# lewat FIREBASE_WEBAPP_CONFIG dan dipetakan ke VITE_FIREBASE_* di vite.config.js.
+runConfig:
+  minInstances: 0
+  maxInstances: 2
+  concurrency: 80
+  cpu: 1
+  memoryMiB: 512
+
+env:
+  - variable: VITE_FIRESTORE_DB
+    value: siman-simulasi
+    availability:
+      - BUILD

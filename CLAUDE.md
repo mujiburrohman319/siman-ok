@@ -17,7 +17,11 @@ npm run test:emulator        # uji firestore.rules + alur end-to-end db.js di Fi
 npm run emulators            # Auth + Firestore lokal; app memakainya bila VITE_USE_EMULATOR=true
 npm run build
 firebase deploy --only firestore:rules,firestore:indexes   # setelah `firebase use <project>`
+npm start                    # server.js menyajikan dist/ di $PORT (dipakai Firebase App Hosting)
 ```
+
+Deploy App Hosting: `apphosting.yaml` + `server.js` (tanpa dependensi). `vite.config.js` memetakan
+`FIREBASE_WEBAPP_CONFIG` (disediakan App Hosting saat build) ke `VITE_FIREBASE_*`.
 
 ## Stack dan prinsip
 
