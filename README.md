@@ -17,7 +17,11 @@ Kuasa Pengguna Barang pada satker simulasi; dosen berperan sebagai Pengelola Bar
 5. Daftar akun pertama, lalu ubah `users/{uid}.role` menjadi `pengelola` di Firestore Console.
 6. Sebagai dosen: menu **Kelas & Satker** → buat kelas → tambah satker → tambah email mahasiswa → *Isi data contoh*.
 
-Deploy hosting: `npm run build && firebase deploy --only hosting` (atau Firebase App Hosting).
+Deploy:
+- **Firebase App Hosting** (otomatis dari GitHub `main`): App Hosting menjalankan `npm run build` lalu `npm start`
+  (`server.js` menyajikan `dist/` di `$PORT`). Konfigurasi web Firebase diambil otomatis dari `FIREBASE_WEBAPP_CONFIG`;
+  nama database diatur di `apphosting.yaml`. Pastikan backend App Hosting terhubung ke web app di proyek yang sama.
+- **Firebase Hosting** (statis): `npm run build && firebase deploy --only hosting`.
 
 ## Pengujian
 
