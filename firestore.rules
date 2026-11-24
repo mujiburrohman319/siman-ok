@@ -12,6 +12,22 @@ service cloud.firestore {
     function satkerDoc(s) { return get(/databases/$(database)/documents/satker/$(s)).data; }
     function isMember(s) { return signedIn() && request.auth.uid in satkerDoc(s).anggota; }
     function isApip(s) { return signedIn() && request.auth.uid in satkerDoc(s).get('apipUids', []); }
+    function berubah() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function trxPath(s, t) { return /databases/$(database)/documents/satker/$(s)/transaksi/$(t); }
+    function asetPath(s, a) { return /databases/$(database)/documents/satker/$(s)/aset/$(a); }
+
+    // Field aset yang hanya boleh berubah lewat catatTransaksi() (CLAUDE.md aturan 1)
+    function FIELD_TRANSAKSI() {
+      return ['nilai', 'nilaiAwal', 'kondisi', 'status', 'intrakomptabel', 'bersejarah', 'kodeBarang', 'nup', 'trxTerakhir'];
+    }
+    // Penulisan aset dipasangkan dengan transaksi baru dalam batch yang sama:
+    // aset.trxTerakhir menunjuk transaksi yang belum ada sebelumnya dan merujuk aset ini.
+    function lewatTransaksi(s, asetId) {
+      let t = request.resource.data.get('trxTerakhir', null);
+      return t is string
+        && !exists(trxPath(s, t))
+        && getAfter(trxPath(s, t)).data.asetId == asetId;
+    }
 
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isStaff());
@@ -35,6 +51,21 @@ service cloud.firestore {
       allow write: if isStaff();
     }
 
+    // Skenario kasus: mahasiswa membaca skenario terbit di kelasnya; kunci jawaban hanya dosen;
+    // nilai dibaca anggota satker setelah diterbitkan dosen.
+    match /skenario/{id} {
+      allow read: if isStaff()
+        || (signedIn() && resource.data.status in ['terbit', 'ditutup'] && resource.data.kelasId == me().get('kelasId', ''));
+      allow write: if isStaff();
+      match /kunci/{doc} {
+        allow read, write: if isStaff();
+      }
+      match /nilai/{satkerId} {
+        allow read: if isStaff() || (isMember(satkerId) && resource.data.get('terbit', false) == true);
+        allow write: if isStaff();
+      }
+    }
+
     // Antrean lintas satker untuk dosen (collection group query di menu Penelaahan)
     match /{path=**}/rkbmn/{id} { allow read: if isStaff(); }
     match /{path=**}/usulan/{id} { allow read: if isStaff(); }
@@ -45,27 +76,46 @@ service cloud.firestore {
 
       match /aset/{id} {
         allow read: if isStaff() || isMember(s);
-        allow create, update: if isStaff() || isMember(s);
+        allow create: if (isStaff() || isMember(s)) && lewatTransaksi(s, id);
+        allow update: if (isStaff() || isMember(s))
+          && (!berubah().hasAny(FIELD_TRANSAKSI()) || lewatTransaksi(s, id));
         allow delete: if false; // aset tidak dihapus fisik; gunakan transaksi penghapusan
       }
 
       // Jejak audit: transaksi tidak boleh diubah/dihapus. Koreksi = transaksi baru.
       match /transaksi/{id} {
         allow read: if isStaff() || isMember(s);
-        allow create: if (isStaff() || isMember(s)) && request.resource.data.dibuatOleh == request.auth.uid;
+        // Setiap transaksi wajib dibukukan bersama perubahan asetnya (tidak ada transaksi lepas).
+        allow create: if (isStaff() || isMember(s))
+          && request.resource.data.dibuatOleh == request.auth.uid
+          && getAfter(asetPath(s, request.resource.data.asetId)).data.get('trxTerakhir', null) == id;
         allow update, delete: if false;
       }
 
       match /rkbmn/{id} {
+        // KPB hanya menyusun isi; CHR APIP, telaah, dan tanda tangan diisi pihak masing-masing.
+        function fieldPenyusun() { return ['tahun', 'jenis', 'baris', 'status', 'riwayat', 'updatedAt']; }
         allow read: if isStaff() || isMember(s);
-        allow create: if isStaff() || (isMember(s) && request.resource.data.status == 'draft');
+        allow create: if isStaff() || (isMember(s)
+          && request.resource.data.status == 'draft'
+          && request.resource.data.keys().hasOnly(fieldPenyusun()));
         allow update: if isStaff()
           || (isMember(s)
               && resource.data.status in ['draft', 'dikembalikan']
-              && request.resource.data.status in ['draft', 'reviu_apip'])
+              && request.resource.data.status in ['draft', 'reviu_apip']
+              && berubah().hasOnly(fieldPenyusun()))
           || (isApip(s)
               && resource.data.status == 'reviu_apip'
-              && request.resource.data.status in ['diajukan', 'draft']);
+              && request.resource.data.status in ['diajukan', 'draft']
+              && berubah().hasOnly(['status', 'reviuApip', 'riwayat', 'updatedAt']))
+          // Usulan Perubahan Hasil Penelaahan: KPB hanya mengisi field perubahan (draf/diajukan),
+          // tidak saat usulan sebelumnya masih ditelaah, dan tidak dapat mengisi telaah sendiri.
+          || (isMember(s)
+              && resource.data.status == 'disetujui'
+              && berubah().hasOnly(['perubahan', 'updatedAt'])
+              && request.resource.data.perubahan.status in ['draft', 'diajukan']
+              && !('telaah' in request.resource.data.perubahan)
+              && resource.data.get('perubahan', {}).get('status', '') != 'diajukan');
         allow delete: if isStaff() || (isMember(s) && resource.data.status == 'draft');
       }
 
@@ -74,6 +124,67 @@ service cloud.firestore {
         allow create: if isStaff() || (isMember(s) && request.resource.data.status == 'diajukan');
         allow update: if isStaff();
         allow delete: if isStaff();
+      }
+
+      // Persediaan: saldo FIFO di dokumen barang hanya berubah bersama mutasi baru (pasangan mutasiTerakhir).
+      match /persediaan/{id} {
+        function lewatMutasi() {
+          let m = request.resource.data.get('mutasiTerakhir', null);
+          return m is string
+            && !exists(/databases/$(database)/documents/satker/$(s)/mutasiPersediaan/$(m))
+            && getAfter(/databases/$(database)/documents/satker/$(s)/mutasiPersediaan/$(m)).data.barangId == id;
+        }
+        allow read: if isStaff() || isMember(s);
+        allow create: if (isStaff() || isMember(s))
+          && request.resource.data.saldoQty == 0 && request.resource.data.lapisan.size() == 0;
+        allow update: if (isStaff() || isMember(s))
+          && (!berubah().hasAny(['saldoQty', 'lapisan', 'tglTerakhir', 'mutasiTerakhir', 'kode']) || lewatMutasi());
+        allow delete: if false;
+      }
+      match /mutasiPersediaan/{id} {
+        allow read: if isStaff() || isMember(s);
+        allow create: if (isStaff() || isMember(s))
+          && request.resource.data.dibuatOleh == request.auth.uid
+          && getAfter(/databases/$(database)/documents/satker/$(s)/persediaan/$(request.resource.data.barangId)).data.get('mutasiTerakhir', null) == id;
+        allow update, delete: if false;
+      }
+
+      // Rekonsiliasi: data SAKTI berasal dari unit akuntansi (dosen); KPB menulis penjelasan selisih
+      // dan tidak dapat mengubahnya lagi setelah Berita Acara Rekonsiliasi final.
+      match /sakti/{id} {
+        allow read: if isStaff() || isMember(s);
+        allow write: if isStaff();
+      }
+      match /rekonsiliasi/{id} {
+        allow read: if isStaff() || isMember(s);
+        allow create: if isStaff() || isMember(s);
+        allow update: if isStaff() || (isMember(s) && resource.data.get('status', 'draft') != 'final');
+        allow delete: if isStaff();
+      }
+
+      // Lampiran: maks. 2 MB (≤ 3 potongan base64), format gambar/PDF. Lampiran transaksi tidak dapat dihapus
+      // (bagian jejak audit); foto/dokumen aset dapat dihapus pengunggahnya atau dosen.
+      match /lampiran/{id} {
+        function bolehHapus(d) { return isStaff() || (d.dibuatOleh == request.auth.uid && d.induk.tipe == 'aset'); }
+        allow read: if isStaff() || isMember(s);
+        allow create: if (isStaff() || isMember(s))
+          && request.resource.data.dibuatOleh == request.auth.uid
+          && request.resource.data.induk.tipe in ['aset', 'transaksi']
+          && request.resource.data.tipe in ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+          && request.resource.data.ukuran <= 2097152
+          && request.resource.data.jumlahPotong >= 1 && request.resource.data.jumlahPotong <= 3;
+        allow update: if false;
+        allow delete: if bolehHapus(resource.data);
+        match /potong/{i} {
+          allow read: if isStaff() || isMember(s);
+          allow create: if (isStaff() || isMember(s))
+            && request.resource.data.data is string && request.resource.data.data.size() <= 950000
+            && int(i) < getAfter(/databases/$(database)/documents/satker/$(s)/lampiran/$(id)).data.jumlahPotong
+            && getAfter(/databases/$(database)/documents/satker/$(s)/lampiran/$(id)).data.dibuatOleh == request.auth.uid
+            && !exists(/databases/$(database)/documents/satker/$(s)/lampiran/$(id)/potong/$(i));
+          allow update: if false;
+          allow delete: if bolehHapus(get(/databases/$(database)/documents/satker/$(s)/lampiran/$(id)).data);
+        }
       }
 
       match /inventarisasi/{id} {

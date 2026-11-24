@@ -6,7 +6,8 @@ import { useCollection } from '../lib/hooks.js'
 import { ajukanUsulan } from '../lib/db.js'
 import { JENIS_USULAN, hitungPenyusutan, rupiah, tarifSewaSederhana, tanggalID } from '../lib/bmn.js'
 import PerluSatker from '../components/PerluSatker.jsx'
-import { Alert, Badge, Button, Card, Field, Input, PageHeader, Select, Table, Td, Textarea } from '../components/ui.jsx'
+import { Alert, Badge, Button, Card, Field, Input, PageHeader, Select, Table, Td, Textarea, inputCls } from '../components/ui.jsx'
+import { useToast } from '../components/umpan.jsx'
 import { labelAset } from './Aset.jsx'
 
 const PEMANFAATAN = ['sewa', 'pinjam_pakai', 'ksp', 'bgs_bsg']
@@ -39,6 +40,7 @@ function FormUsulan() {
   const kosong = { jenis: 'penghapusan', asetIds: [], alasan: '', mitra: '', durasiBulan: '', nilaiSewa: '', dokumenPendukung: '' }
   const [f, setF] = useState(kosong)
   const [pesan, setPesan] = useState(null)
+  const toast = useToast()
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }))
 
   const grupPenghapusan = ['Pemindahtanganan', 'Penghapusan'].includes(JENIS_USULAN[f.jenis].grup)
@@ -54,7 +56,7 @@ function FormUsulan() {
     try {
       await ajukanUsulan(satkerId, { ...f, namaJenis: JENIS_USULAN[f.jenis].nama, ringkasAset: terpilih.map(labelAset), nilaiBuku }, user.uid)
       setF(kosong)
-      setPesan({ tone: 'teal', teks: 'Usulan terkirim ke Pengelola Barang.' })
+      toast.sukses('Usulan terkirim ke Pengelola Barang.')
     } catch (err) {
       setPesan({ tone: 'rose', teks: err.message })
     }
@@ -66,7 +68,7 @@ function FormUsulan() {
     <Card title="Ajukan usulan" className="xl:col-span-2">
       <form onSubmit={kirim} className="space-y-4">
         <Field label="Jenis usulan">
-          <select value={f.jenis} onChange={(e) => setF({ ...kosong, jenis: e.target.value })} className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm">
+          <select value={f.jenis} onChange={(e) => setF({ ...kosong, jenis: e.target.value })} className={`${inputCls} w-full cursor-pointer`}>
             {['Penggunaan', 'Pemanfaatan', 'Pemindahtanganan', 'Penghapusan'].map((g) => (
               <optgroup key={g} label={g}>
                 {Object.entries(JENIS_USULAN).filter(([, v]) => v.grup === g).map(([k, v]) => <option key={k} value={k}>{v.nama}</option>)}
