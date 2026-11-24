@@ -24,7 +24,7 @@ export default function RKBMN() {
         desc="RKBMN pengadaan dan pemeliharaan untuk satu tahun anggaran (PMK 150/2014). Disusun KPB, direviu APIP, lalu ditelaah Pengelola Barang."
         actions={
           <>
-            <Select value={tahun} onChange={(e) => setTahun(Number(e.target.value))} options={[tahunIni, tahunIni + 1, tahunIni + 2].map((t) => ({ value: t, label: `TA ${t}` }))} className="w-28" />
+            <Select value={tahun} onChange={(e) => setTahun(Number(e.target.value))} options={[tahunIni, tahunIni + 1, tahunIni + 2].map((t) => ({ value: t, label: `TA ${t}` }))} className="w-32" />
             <Select value={jenis} onChange={(e) => setJenis(e.target.value)} options={[{ value: 'pengadaan', label: 'Pengadaan' }, { value: 'pemeliharaan', label: 'Pemeliharaan' }]} className="w-40" />
           </>
         }
@@ -111,7 +111,7 @@ function Dokumen({ tahun, jenis }) {
           {dok?.tandaTangan?.length > 0 && (
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {dok.tandaTangan.map((t, i) => (
-                <div key={i} className="rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm">
+                <div key={i} className="rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm">
                   <p className="text-xs text-slate-500">{t.peran}</p><p className="font-medium">{t.nama}</p><p className="text-xs text-slate-500">{new Date(t.tanggal).toLocaleDateString('id-ID')}</p>
                 </div>
               ))}
@@ -203,7 +203,7 @@ function TabelPemeliharaan({ baris, setBaris, edit }) {
         {boleh.map(({ a }) => {
           const b = dipilih(a.id)
           return (
-            <tr key={a.id} className={b ? 'bg-teal-50/50' : ''}>
+            <tr key={a.id} className={b ? 'bg-brand-50/50' : ''}>
               <Td><input type="checkbox" disabled={!edit} checked={!!b} onChange={() => toggle(a)} aria-label="Pilih aset" /></Td>
               <Td>{labelAset(a)}</Td>
               <Td>{KONDISI[a.kondisi]}</Td>

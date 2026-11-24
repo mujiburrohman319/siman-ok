@@ -34,7 +34,7 @@ export default function Telaah() {
   return (
     <>
       <PageHeader title="Penelaahan & Persetujuan" desc="Anda bertindak sebagai Pengelola Barang: menelaah RKBMN yang lulus reviu APIP dan memutus usulan pengelolaan BMN dari satker mahasiswa." />
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-5 xl:grid-cols-2">
         <Card title={`RKBMN menunggu penelaahan (${rkbmn.length})`}>
           <Table head={['Satker', 'Dokumen', '']} empty={rkbmn.length ? null : 'Tidak ada antrean.'}>
             {rkbmn.map((r) => (

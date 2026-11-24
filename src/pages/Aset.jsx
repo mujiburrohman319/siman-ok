@@ -47,9 +47,9 @@ function DaftarAset() {
       title={`${list.length} aset`}
       actions={
         <>
-          <Input placeholder="Cari kode, nama, merk, ruang…" value={cari} onChange={(e) => setCari(e.target.value)} className="w-56" />
-          <Select value={gol} onChange={(e) => setGol(e.target.value)} placeholder="Semua golongan" options={Object.entries(GOLONGAN).map(([value, label]) => ({ value, label }))} className="w-48" />
-          <Select value={status} onChange={(e) => setStatus(e.target.value)} placeholder="Semua status" options={Object.entries(STATUS_ASET).map(([value, label]) => ({ value, label }))} className="w-52" />
+          <Input placeholder="Cari kode, nama, merk, ruang…" value={cari} onChange={(e) => setCari(e.target.value)} className="w-full sm:w-56" />
+          <Select value={gol} onChange={(e) => setGol(e.target.value)} placeholder="Semua golongan" options={Object.entries(GOLONGAN).map(([value, label]) => ({ value, label }))} className="w-full sm:w-48" />
+          <Select value={status} onChange={(e) => setStatus(e.target.value)} placeholder="Semua status" options={Object.entries(STATUS_ASET).map(([value, label]) => ({ value, label }))} className="w-full sm:w-52" />
         </>
       }
     >

@@ -7,7 +7,7 @@ import { KODE_BARANG, cariKode } from '../data/kodeBarang.js'
 import { KIB } from '../data/kib.js'
 import { DOKUMEN_SUMBER, JENIS_TRANSAKSI, KONDISI, isIntrakomptabel, nupBerikutnya, rupiah, tanggalID } from '../lib/bmn.js'
 import PerluSatker from '../components/PerluSatker.jsx'
-import { Alert, Badge, Button, Card, Field, Input, PageHeader, Select, Table, Td } from '../components/ui.jsx'
+import { Alert, Badge, Button, Card, Field, Input, PageHeader, Select, Table, Td, inputCls } from '../components/ui.jsx'
 import { labelAset } from './Aset.jsx'
 
 const hariIni = () => new Date().toISOString().slice(0, 10)
@@ -92,7 +92,7 @@ function FormTransaksi() {
     <Card title="Catat transaksi" className="xl:col-span-2">
       <form onSubmit={simpan} className="space-y-4">
         <Field label="Jenis transaksi">
-          <select value={f.jenis} onChange={(e) => set('jenis', e.target.value)} className="w-full rounded-lg border border-slate-300 px-2.5 py-1.5 text-sm">
+          <select value={f.jenis} onChange={(e) => set('jenis', e.target.value)} className={`${inputCls} w-full cursor-pointer`}>
             {grupJenis.map((g) => (
               <optgroup key={g.k} label={g.label}>
                 {g.list.map(([k, v]) => <option key={k} value={k}>{v.nama}</option>)}

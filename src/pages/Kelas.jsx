@@ -21,7 +21,7 @@ export default function Kelas() {
         <Card title="Kelas">
           <div className="space-y-2">
             {kelas.map((k) => (
-              <button key={k.id} onClick={() => setPilih(k.id)} className={`block w-full rounded-lg border px-3 py-2 text-left text-sm ${k.id === kelasId ? 'border-teal-600 bg-teal-50' : 'border-slate-200 hover:bg-slate-50'}`}>
+              <button key={k.id} onClick={() => setPilih(k.id)} className={`block w-full rounded-xl border px-3 py-2.5 transition text-left text-sm ${k.id === kelasId ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500' : 'border-slate-200 hover:bg-slate-50'}`}>
                 <span className="font-medium">{k.nama}</span>
                 <span className="block text-xs text-slate-500">{k.mk} · {k.semester} {k.tahunAkademik}</span>
               </button>

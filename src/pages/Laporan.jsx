@@ -4,7 +4,7 @@ import { useSatker } from '../lib/satker.jsx'
 import { useCollection } from '../lib/hooks.js'
 import { AKUN, KONDISI, akunAset, hitungLBKP, hitungPenyusutan, hitungPenyusutanPerAkun, kelompokNeraca, rupiah, saldoDariAset, tanggalID } from '../lib/bmn.js'
 import PerluSatker from '../components/PerluSatker.jsx'
-import { Alert, Button, Card, PageHeader, Select, Table, Td } from '../components/ui.jsx'
+import { Alert, Button, Card, PageHeader, Select, Table, Tabs, Td } from '../components/ui.jsx'
 
 const TABS = [
   ['lbkp', 'LBKP'],
@@ -24,11 +24,7 @@ export default function Laporan() {
         desc="Disusun otomatis dari Buku Barang. Laporan semesteran dan tahunan menjadi bahan penyusunan neraca satker."
         actions={<Button variant="secondary" onClick={() => window.print()}><Printer size={16} /> Cetak</Button>}
       />
-      <div className="mb-4 flex flex-wrap gap-1 border-b border-slate-200 print:hidden">
-        {TABS.map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)} className={`-mb-px border-b-2 px-3 py-2 text-sm ${tab === k ? 'border-teal-700 font-medium text-teal-800' : 'border-transparent text-slate-500 hover:text-slate-700'}`}>{l}</button>
-        ))}
-      </div>
+      <Tabs items={TABS} value={tab} onChange={setTab} />
       <PerluSatker>
         {tab === 'lbkp' && <LBKP />}
         {tab === 'dbkp' && <DBKP />}
