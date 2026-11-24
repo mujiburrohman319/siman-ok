@@ -100,7 +100,7 @@ export default function Login() {
             <p className="text-sm text-slate-500">Simulator Manajemen Aset Negara</p>
           </div>
         </div>
-        <form onSubmit={submit} className="w-full max-w-sm space-y-5 rounded-2xl bg-white p-6 shadow-card ring-1 ring-slate-900/[0.06] lg:p-0 lg:shadow-none lg:ring-0">
+        <form onSubmit={submit} className="animasi-masuk w-full max-w-sm space-y-5 rounded-2xl bg-white p-6 shadow-card ring-1 ring-slate-900/[0.06] lg:p-0 lg:shadow-none lg:ring-0">
           <div>
             <h2 className="text-2xl font-semibold tracking-tight text-slate-900">{user ? 'Lengkapi profil' : mode === 'masuk' ? 'Selamat datang kembali' : 'Daftar akun mahasiswa'}</h2>
             <p className="mt-1 text-sm text-slate-500">{user ? `Masuk sebagai ${user.email}.` : mode === 'masuk' ? 'Masuk untuk melanjutkan praktikum Anda.' : 'Isi data diri Anda untuk mulai praktikum.'}</p>
