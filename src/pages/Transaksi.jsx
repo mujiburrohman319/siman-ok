@@ -7,7 +7,9 @@ import { KODE_BARANG, cariKode } from '../data/kodeBarang.js'
 import { KIB } from '../data/kib.js'
 import { DOKUMEN_SUMBER, JENIS_TRANSAKSI, KONDISI, isIntrakomptabel, nupBerikutnya, rupiah, tanggalID } from '../lib/bmn.js'
 import PerluSatker from '../components/PerluSatker.jsx'
-import { Alert, Badge, Button, Card, Field, Input, PageHeader, Select, Table, Td, inputCls } from '../components/ui.jsx'
+import { Search } from 'lucide-react'
+import { Alert, Badge, Button, Card, Field, Input, PageHeader, Paging, Select, Table, Td, TombolEkspor, inputCls, usePaging } from '../components/ui.jsx'
+import { useKonfirmasi, useToast } from '../components/umpan.jsx'
 import { labelAset } from './Aset.jsx'
 
 const hariIni = () => new Date().toISOString().slice(0, 10)
@@ -57,6 +59,8 @@ function FormTransaksi() {
   }
   const [f, setF] = useState(awal)
   const [pesan, setPesan] = useState(null)
+  const toast = useToast()
+  const konfirmasi = useKonfirmasi()
   const [proses, setProses] = useState(false)
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }))
 
@@ -74,12 +78,25 @@ function FormTransaksi() {
   async function simpan(e) {
     e.preventDefault()
     setPesan(null)
+    const objek = def.kelompok === 'tambah' ? `${f.kodeBarang} ${kode?.uraian || ''}` : asetTerpilih ? labelAset(asetTerpilih) : ''
+    const ok = await konfirmasi({
+      judul: `Bukukan ${def.nama}?`,
+      pesan: (
+        <>
+          <p className="font-medium text-slate-800">{objek}</p>
+          <p>{tanggalID(f.tanggal)} · {f.dokumen.jenis} {f.dokumen.nomor}{butuhNilai && f.nilai !== '' ? ` · ${rupiah(f.nilai)}` : ''}</p>
+          <p className="mt-2">Transaksi yang sudah dibukukan <b>tidak dapat diubah atau dihapus</b>. Kesalahan dikoreksi dengan transaksi koreksi.</p>
+        </>
+      ),
+      ya: 'Bukukan',
+    })
+    if (!ok) return
     setProses(true)
     try {
       const input = { ...f, nilai: f.nilai === '' ? undefined : Number(f.nilai) }
       if (def.kelompok === 'tambah') input.nup = nupBerikutnya(aset, f.kodeBarang)
       await catatTransaksi({ satkerId, asetId: def.kelompok === 'tambah' ? null : f.asetId, input, uid: user.uid, ref })
-      setPesan({ tone: 'teal', teks: `${def.nama} berhasil dibukukan.` })
+      toast.sukses(`${def.nama} berhasil dibukukan.`)
       setF({ ...awal, jenis: f.jenis, dokumen: { ...awal.dokumen, jenis: f.dokumen.jenis } })
     } catch (err) {
       setPesan({ tone: 'rose', teks: err.message })
@@ -164,19 +181,40 @@ function FormTransaksi() {
 }
 
 function BukuBarang() {
-  const { transaksi } = useSatker()
+  const { transaksi, satker } = useSatker()
   const [filter, setFilter] = useState('')
-  const list = useMemo(() => [...transaksi].reverse().filter((t) => !filter || t.kelompok === filter), [transaksi, filter])
+  const [cari, setCari] = useState('')
+  const list = useMemo(() => {
+    const q = cari.trim().toLowerCase()
+    return [...transaksi].reverse()
+      .filter((t) => !filter || t.kelompok === filter)
+      .filter((t) => !q || `${t.kodeBarang} ${t.namaBarang} ${t.namaJenis} ${t.dokumen?.jenis} ${t.dokumen?.nomor} ${t.keterangan || ''} ${t.tanggal}`.toLowerCase().includes(q))
+  }, [transaksi, filter, cari])
+  const paging = usePaging(list, 20)
   const tone = { tambah: 'teal', ubah: 'blue', kurang: 'rose' }
+  const efekTotal = (t) => (t.efek || []).reduce((s, e) => s + e.nilai, 0)
+  const ekspor = () => ({
+    judul: 'Buku Barang', sheet: 'Buku Barang', subjudul: [`${satker?.kode || ''} · ${satker?.nama || ''}`, `Per ${tanggalID(new Date())}`],
+    kolom: [{ label: 'Tanggal' }, { label: 'Jenis transaksi' }, { label: 'Kode barang' }, { label: 'NUP', tipe: 'angka' }, { label: 'Nama barang' }, { label: 'Dokumen' }, { label: 'Nomor dokumen' }, { label: 'Keterangan' }, { label: 'Efek neraca', tipe: 'uang' }],
+    baris: [...transaksi].map((t) => [tanggalID(t.tanggal), t.namaJenis, t.kodeBarang, t.nup, t.namaBarang, t.dokumen?.jenis, t.dokumen?.nomor, t.keterangan || '', efekTotal(t)]),
+  })
   return (
     <Card
-      title="Buku Barang (semua transaksi)"
+      title="Buku Barang"
+      desc={`${transaksi.length} transaksi dibukukan`}
       className="xl:col-span-3"
-      actions={<Select value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Semua kelompok" options={[{ value: 'tambah', label: 'Perolehan' }, { value: 'ubah', label: 'Perubahan' }, { value: 'kurang', label: 'Penghapusan' }]} className="w-44" />}
+      actions={<TombolEkspor nama="Buku Barang" laporan={ekspor} />}
     >
-      <Table head={['Tanggal', 'Transaksi', 'Barang', 'Dokumen', { label: 'Efek neraca', right: true }]} empty={list.length ? null : 'Belum ada transaksi.'}>
-        {list.map((t) => {
-          const efek = (t.efek || []).reduce((s, e) => s + e.nilai, 0)
+      <div className="mb-4 flex flex-wrap gap-2">
+        <label className="relative min-w-48 flex-1">
+          <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Input placeholder="Cari kode, barang, nomor dokumen…" value={cari} onChange={(e) => setCari(e.target.value)} className="w-full pl-9" />
+        </label>
+        <Select value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Semua kelompok" options={[{ value: 'tambah', label: 'Perolehan' }, { value: 'ubah', label: 'Perubahan' }, { value: 'kurang', label: 'Penghapusan' }]} className="w-full sm:w-44" />
+      </div>
+      <Table head={['Tanggal', 'Transaksi', 'Barang', 'Dokumen', { label: 'Efek neraca', right: true }]} empty={list.length ? null : transaksi.length ? 'Tidak ada transaksi yang cocok.' : 'Belum ada transaksi.'}>
+        {paging.isi.map((t) => {
+          const efek = efekTotal(t)
           return (
             <tr key={t.id}>
               <Td className="whitespace-nowrap">{tanggalID(t.tanggal)}</Td>
@@ -188,6 +226,7 @@ function BukuBarang() {
           )
         })}
       </Table>
+      <Paging {...paging} />
     </Card>
   )
 }

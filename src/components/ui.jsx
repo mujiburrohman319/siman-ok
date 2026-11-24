@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { Inbox, Loader2, X } from 'lucide-react'
+import { forwardRef, useEffect, useMemo, useState } from 'react'
+import { ChevronLeft, ChevronRight, FileDown, FileSpreadsheet, Inbox, Loader2, X } from 'lucide-react'
 
 /** Gabung kelas; jika pemanggil memberi lebar sendiri (w-*), lebar bawaan dibuang. */
 const lebar = (cls = '') => (/(^|\s)(w-|max-w-|min-w-|flex-1)/.test(cls) ? '' : 'w-full')
@@ -38,14 +38,15 @@ const VARIAN = {
 }
 const UKURAN = { sm: 'h-8 px-2.5 text-xs', md: 'h-9 px-3.5 text-sm', lg: 'h-10 px-4 text-sm' }
 
-export function Button({ variant = 'primary', size = 'md', className = '', ...p }) {
+export const Button = forwardRef(function Button({ variant = 'primary', size = 'md', className = '', ...p }, ref) {
   return (
     <button
+      ref={ref}
       {...p}
       className={`inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-lg font-medium transition-all duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:active:scale-100 ${UKURAN[size]} ${VARIAN[variant]} ${className}`}
     />
   )
-}
+})
 
 export function Field({ label, hint, children, className = '' }) {
   return (
@@ -225,3 +226,50 @@ export const Loading = () => (
     <Loader2 size={18} className="animate-spin text-brand-600" /> Memuat data…
   </div>
 )
+
+/** Halaman bertahap untuk daftar panjang. Kembali ke halaman 1 bila panjang daftar berubah (mis. filter). */
+export function usePaging(list, ukuran = 25) {
+  const [hal, setHal] = useState(1)
+  const jumlahHal = Math.max(1, Math.ceil(list.length / ukuran))
+  useEffect(() => { setHal(1) }, [list.length])
+  const aktif = Math.min(hal, jumlahHal)
+  const isi = useMemo(() => list.slice((aktif - 1) * ukuran, aktif * ukuran), [list, aktif, ukuran])
+  return { isi, hal: aktif, jumlahHal, setHal, total: list.length, ukuran }
+}
+
+export function Paging({ hal, jumlahHal, setHal, total, ukuran }) {
+  if (total <= ukuran) return null
+  const dari = (hal - 1) * ukuran + 1
+  const sampai = Math.min(hal * ukuran, total)
+  return (
+    <div className="mt-4 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-500 print:hidden">
+      <span>{dari}–{sampai} dari {total}</span>
+      <div className="flex items-center gap-1">
+        <Button size="sm" variant="secondary" disabled={hal <= 1} onClick={() => setHal(hal - 1)} aria-label="Halaman sebelumnya"><ChevronLeft size={15} /></Button>
+        <span className="px-2 tabular-nums">{hal} / {jumlahHal}</span>
+        <Button size="sm" variant="secondary" disabled={hal >= jumlahHal} onClick={() => setHal(hal + 1)} aria-label="Halaman berikutnya"><ChevronRight size={15} /></Button>
+      </div>
+    </div>
+  )
+}
+
+/** Tombol Excel + PDF. laporan = fungsi yang mengembalikan data laporan (lihat src/lib/ekspor.js). */
+export function TombolEkspor({ nama, laporan, tandaTangan }) {
+  const [proses, setProses] = useState(false)
+  async function jalankan(jenis) {
+    setProses(true)
+    try {
+      const m = await import('../lib/ekspor.js')
+      if (jenis === 'xlsx') m.unduhExcel(nama, laporan())
+      else await m.unduhPDF(nama, laporan(), { tandaTangan })
+    } finally {
+      setProses(false)
+    }
+  }
+  return (
+    <div className="flex gap-1.5 print:hidden">
+      <Button size="sm" variant="secondary" disabled={proses} onClick={() => jalankan('xlsx')}><FileSpreadsheet size={14} /> Excel</Button>
+      <Button size="sm" variant="secondary" disabled={proses} onClick={() => jalankan('pdf')}><FileDown size={14} /> PDF</Button>
+    </div>
+  )
+}

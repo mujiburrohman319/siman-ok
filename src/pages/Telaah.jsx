@@ -7,6 +7,7 @@ import { useCollection } from '../lib/hooks.js'
 import { setujuiUsulan, simpanRKBMN, tolakUsulan } from '../lib/db.js'
 import { rupiah, tanggalID, validasiBarisPengadaan } from '../lib/bmn.js'
 import { Alert, Badge, Button, Card, Field, Input, Modal, PageHeader, Select, Table, Td, Textarea } from '../components/ui.jsx'
+import { useKonfirmasi, useToast } from '../components/umpan.jsx'
 
 /** Antrean lintas satker: dokumen berstatus tertentu di sub-koleksi semua satker. */
 function useAntrean(koleksi, status) {
@@ -71,6 +72,8 @@ function PanelRKBMN({ r, satker, selesai }) {
   const [baris, setBaris] = useState(r.baris || [])
   const [catatan, setCatatan] = useState('')
   const [err, setErr] = useState('')
+  const toast = useToast()
+  const konfirmasi = useKonfirmasi()
   const ubah = (i, k) => setBaris(baris.map((b, j) => (j === i ? { ...b, keputusan: { ...(b.keputusan || {}), ...k } } : b)))
   const now = () => new Date().toISOString()
   const riwayat = (status, cat) => [...(r.riwayat || []), { status, oleh: profil.nama, waktu: now(), catatan: cat }]
@@ -79,6 +82,12 @@ function PanelRKBMN({ r, satker, selesai }) {
     setErr('')
     if (status === 'disetujui' && baris.some((b) => !b.keputusan?.status)) return setErr('Beri keputusan untuk setiap baris.')
     if (status === 'dikembalikan' && !catatan) return setErr('Tuliskan catatan pengembalian.')
+    const setuju = status === 'disetujui'
+    if (!(await konfirmasi({
+      judul: setuju ? 'Tetapkan Hasil Penelaahan RKBMN?' : 'Kembalikan RKBMN untuk direvisi?',
+      pesan: setuju ? 'Dokumen ditandatangani Pengguna dan Pengelola Barang (simulasi) dan menjadi dasar usulan anggaran.' : 'Satker akan merevisi RKBMN sesuai catatan Anda.',
+      ya: setuju ? 'Tetapkan' : 'Kembalikan',
+    }))) return
     await simpanRKBMN(r.satkerId, r.id, {
       baris,
       status,
@@ -91,6 +100,7 @@ function PanelRKBMN({ r, satker, selesai }) {
           ] }
         : {}),
     })
+    toast.sukses(setuju ? 'Hasil Penelaahan RKBMN ditetapkan.' : 'RKBMN dikembalikan ke satker.')
     selesai()
   }
 
@@ -144,12 +154,20 @@ function PanelUsulan({ u, satker, selesai }) {
   const [err, setErr] = useState('')
   const [proses, setProses] = useState(false)
   const asetSatkerAktif = satkerId === u.satkerId
+  const toast = useToast()
+  const konfirmasi = useKonfirmasi()
 
   async function setujui() {
     setErr('')
+    if (!(await konfirmasi({
+      judul: `Setujui usulan ${u.namaJenis}?`,
+      pesan: <>SK <b>{nomorSK}</b> terbit dan konsekuensinya langsung dibukukan pada {u.asetIds?.length || 0} aset satker. Transaksi yang dibukukan tidak dapat dibatalkan.</>,
+      ya: 'Setujui & bukukan',
+    }))) return
     setProses(true)
     try {
       await setujuiUsulan({ satkerId: u.satkerId, usulan: u, nomorSK, catatan, uid: user.uid, ref })
+      toast.sukses(`Usulan ${u.namaJenis} disetujui (${nomorSK}).`)
       selesai()
     } catch (e) {
       setErr(e.message)
@@ -180,7 +198,13 @@ function PanelUsulan({ u, satker, selesai }) {
       {err && <Alert tone="rose">{err}</Alert>}
       <div className="flex gap-2">
         <Button onClick={setujui} disabled={proses || !nomorSK}>{proses ? 'Memproses…' : 'Setujui'}</Button>
-        <Button variant="danger" onClick={async () => { if (!catatan) return setErr('Isi catatan alasan penolakan.'); await tolakUsulan({ satkerId: u.satkerId, usulanId: u.id, catatan, uid: user.uid }); selesai() }}>Tolak</Button>
+        <Button variant="danger" onClick={async () => {
+          if (!catatan) return setErr('Isi catatan alasan penolakan.')
+          if (!(await konfirmasi({ judul: `Tolak usulan ${u.namaJenis}?`, pesan: 'Keputusan penolakan dikirim ke satker beserta catatan Anda.', ya: 'Tolak usulan', bahaya: true }))) return
+          await tolakUsulan({ satkerId: u.satkerId, usulanId: u.id, catatan, uid: user.uid })
+          toast.info('Usulan ditolak.')
+          selesai()
+        }}>Tolak</Button>
       </div>
     </div>
   )

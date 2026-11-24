@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   LayoutDashboard, Boxes, ArrowLeftRight, FileBarChart, ClipboardList, Send, ScanSearch, Gavel, School, Settings2, LogOut, Menu, X,
@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../lib/auth.jsx'
 import { useSatker } from '../lib/satker.jsx'
 import { useCollection } from '../lib/hooks.js'
+import { Loading } from './ui.jsx'
 
 const MENU = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
@@ -140,7 +141,9 @@ export default function Layout() {
           </div>
         </header>
         <main className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6 lg:p-8 print:max-w-none print:p-0">
-          <Outlet />
+          <Suspense fallback={<Loading />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

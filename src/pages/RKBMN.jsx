@@ -8,6 +8,7 @@ import { KODE_BARANG } from '../data/kodeBarang.js'
 import { KONDISI, cekObjekPemeliharaan, rupiah, validasiBarisPengadaan } from '../lib/bmn.js'
 import PerluSatker from '../components/PerluSatker.jsx'
 import { Alert, Badge, Button, Card, Field, Input, PageHeader, Select, Table, Td, Textarea } from '../components/ui.jsx'
+import { useToast } from '../components/umpan.jsx'
 import { StatusRKBMN } from './Dashboard.jsx'
 import { labelAset } from './Aset.jsx'
 
@@ -41,6 +42,7 @@ function Dokumen({ tahun, jenis }) {
   const { data: dok, loading } = useDoc(['satker', satkerId, 'rkbmn', id])
   const [baris, setBaris] = useState([])
   const [pesan, setPesan] = useState(null)
+  const toast = useToast()
   const [chr, setChr] = useState('')
 
   useEffect(() => { if (!loading) setBaris(dok?.baris || []) }, [loading, dok?.updatedAt?.seconds]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -61,7 +63,7 @@ function Dokumen({ tahun, jenis }) {
         ...(statusBaru !== status ? { riwayat: riwayat(statusBaru, extra.catatanRiwayat) } : {}),
         ...extra.patch,
       })
-      setPesan({ tone: 'teal', teks: statusBaru === 'draft' ? 'Draf tersimpan.' : `Status: ${statusBaru.replace('_', ' ')}.` })
+      toast.sukses({ draft: 'Draf tersimpan.', reviu_apip: 'RKBMN dikirim untuk reviu APIP.', diajukan: 'RKBMN diteruskan ke Pengelola Barang.' }[statusBaru] || 'Tersimpan.')
     } catch (e) {
       setPesan({ tone: 'rose', teks: e.message })
     }

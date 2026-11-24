@@ -6,7 +6,8 @@ import { cariKode, golonganDari, GOLONGAN } from '../data/kodeBarang.js'
 import { KIB } from '../data/kib.js'
 import { KONDISI, STATUS_ASET, STATUS_PENGGUNAAN, akunAset, hitungPenyusutan, rupiah, tanggalID } from '../lib/bmn.js'
 import PerluSatker from '../components/PerluSatker.jsx'
-import { Alert, Badge, Button, Card, Field, Input, Modal, PageHeader, Select, Table, Td } from '../components/ui.jsx'
+import { Alert, Badge, Button, Card, Field, Input, Modal, PageHeader, Paging, Select, Table, Td, TombolEkspor, usePaging } from '../components/ui.jsx'
+import { useToast } from '../components/umpan.jsx'
 
 export const toneKondisi = { B: 'teal', RR: 'amber', RB: 'rose' }
 export const toneStatus = { aktif: 'teal', rusak_berat: 'rose', hilang: 'rose', dihentikan: 'amber', dihapus: 'slate' }
@@ -41,6 +42,13 @@ function DaftarAset() {
   }, [aset, cari, gol, status])
 
   const terpilih = pilih ? aset.find((a) => a.id === pilih) : null
+  const paging = usePaging(list, 25)
+  const ekspor = () => ({
+    judul: 'Daftar Aset', sheet: 'Aset', subjudul: [`Per ${tanggalID(new Date())}`],
+    kolom: [{ label: 'Kode barang' }, { label: 'NUP', tipe: 'angka' }, { label: 'Nama barang' }, { label: 'Merk/tipe' }, { label: 'Lokasi' }, { label: 'Kondisi' }, { label: 'Status' }, { label: 'Buku' }, { label: 'Tgl perolehan' }, { label: 'Nilai', tipe: 'uang' }],
+    baris: list.map((a) => [a.kodeBarang, a.nup, a.namaBarang, a.merk, a.lokasiRuang, KONDISI[a.kondisi], STATUS_ASET[a.status], a.bersejarah ? 'Bersejarah' : a.intrakomptabel ? 'Intrakomptabel' : 'Ekstrakomptabel', tanggalID(a.tglPerolehan), a.nilai]),
+    total: ['Jumlah', '', '', '', '', '', '', '', '', list.reduce((s, a) => s + a.nilai, 0)],
+  })
 
   return (
     <Card
@@ -50,11 +58,12 @@ function DaftarAset() {
           <Input placeholder="Cari kode, nama, merk, ruang…" value={cari} onChange={(e) => setCari(e.target.value)} className="w-full sm:w-56" />
           <Select value={gol} onChange={(e) => setGol(e.target.value)} placeholder="Semua golongan" options={Object.entries(GOLONGAN).map(([value, label]) => ({ value, label }))} className="w-full sm:w-48" />
           <Select value={status} onChange={(e) => setStatus(e.target.value)} placeholder="Semua status" options={Object.entries(STATUS_ASET).map(([value, label]) => ({ value, label }))} className="w-full sm:w-52" />
+          <TombolEkspor nama="Daftar Aset" laporan={ekspor} />
         </>
       }
     >
       <Table head={['Kode barang', 'NUP', 'Nama / merk', 'Lokasi', 'Kondisi', 'Status', 'Buku', { label: 'Nilai', right: true }]} empty={list.length ? null : 'Tidak ada aset sesuai filter.'}>
-        {list.map((a) => (
+        {paging.isi.map((a) => (
           <tr key={a.id} className="cursor-pointer hover:bg-slate-50" onClick={() => setPilih(a.id)}>
             <Td className="font-mono text-xs">{a.kodeBarang}</Td>
             <Td>{a.nup}</Td>
@@ -67,6 +76,7 @@ function DaftarAset() {
           </tr>
         ))}
       </Table>
+      <Paging {...paging} />
       <Modal open={!!terpilih} onClose={() => setPilih(null)} title={terpilih ? labelAset(terpilih) : ''} wide>
         {terpilih && <DetailAset aset={terpilih} />}
       </Modal>
@@ -85,6 +95,7 @@ function DetailAset({ aset }) {
     kib: aset.kib || {},
   })
   const [pesan, setPesan] = useState('')
+  const toast = useToast()
   const susut = hitungPenyusutan(aset, new Date())
   const riwayat = transaksi.filter((t) => t.asetId === aset.id)
   const bisaEdit = aset.status !== 'dihapus'
@@ -93,7 +104,7 @@ function DetailAset({ aset }) {
     setPesan('')
     try {
       await ubahAtributAset(satkerId, aset.id, f)
-      setPesan('Tersimpan.')
+      toast.sukses('Atribut aset tersimpan.')
     } catch (e) {
       setPesan(e.message)
     }

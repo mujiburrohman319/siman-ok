@@ -7,6 +7,7 @@ import { ajukanUsulan } from '../lib/db.js'
 import { JENIS_USULAN, hitungPenyusutan, rupiah, tarifSewaSederhana, tanggalID } from '../lib/bmn.js'
 import PerluSatker from '../components/PerluSatker.jsx'
 import { Alert, Badge, Button, Card, Field, Input, PageHeader, Select, Table, Td, Textarea, inputCls } from '../components/ui.jsx'
+import { useToast } from '../components/umpan.jsx'
 import { labelAset } from './Aset.jsx'
 
 const PEMANFAATAN = ['sewa', 'pinjam_pakai', 'ksp', 'bgs_bsg']
@@ -39,6 +40,7 @@ function FormUsulan() {
   const kosong = { jenis: 'penghapusan', asetIds: [], alasan: '', mitra: '', durasiBulan: '', nilaiSewa: '', dokumenPendukung: '' }
   const [f, setF] = useState(kosong)
   const [pesan, setPesan] = useState(null)
+  const toast = useToast()
   const set = (k, v) => setF((x) => ({ ...x, [k]: v }))
 
   const grupPenghapusan = ['Pemindahtanganan', 'Penghapusan'].includes(JENIS_USULAN[f.jenis].grup)
@@ -54,7 +56,7 @@ function FormUsulan() {
     try {
       await ajukanUsulan(satkerId, { ...f, namaJenis: JENIS_USULAN[f.jenis].nama, ringkasAset: terpilih.map(labelAset), nilaiBuku }, user.uid)
       setF(kosong)
-      setPesan({ tone: 'teal', teks: 'Usulan terkirim ke Pengelola Barang.' })
+      toast.sukses('Usulan terkirim ke Pengelola Barang.')
     } catch (err) {
       setPesan({ tone: 'rose', teks: err.message })
     }

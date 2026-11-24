@@ -8,6 +8,7 @@ import { golonganDari } from '../data/kodeBarang.js'
 import { KONDISI, tanggalID } from '../lib/bmn.js'
 import PerluSatker from '../components/PerluSatker.jsx'
 import { Alert, Badge, Button, Card, Field, Input, PageHeader, Select, Table, Td } from '../components/ui.jsx'
+import { useKonfirmasi, useToast } from '../components/umpan.jsx'
 import { labelAset } from './Aset.jsx'
 
 const JENIS = {
@@ -72,6 +73,8 @@ function Lembar({ sesi }) {
   const [pesan, setPesan] = useState(null)
   const [proses, setProses] = useState(false)
   const selesai = sesi.status === 'selesai'
+  const toast = useToast()
+  const konfirmasi = useKonfirmasi()
 
   const objek = aset
     .filter((a) => a.status === 'aktif')
@@ -86,12 +89,16 @@ function Lembar({ sesi }) {
 
   async function simpanDraf() {
     await simpanInventarisasi(satkerId, sesi.id, { hasil, nomorBA })
-    setPesan({ tone: 'teal', teks: 'Lembar kerja tersimpan.' })
+    toast.sukses('Lembar kerja tersimpan.')
   }
 
   async function finalisasi() {
     if (!nomorBA) return setPesan({ tone: 'rose', teks: 'Isi nomor Berita Acara Inventarisasi terlebih dahulu.' })
-    if (!window.confirm(`Bukukan ${berubah.length} koreksi kondisi dan ${hilang.length} reklasifikasi barang hilang?`)) return
+    if (!(await konfirmasi({
+      judul: 'Selesaikan inventarisasi?',
+      pesan: <>Akan dibukukan <b>{berubah.length} koreksi kondisi</b> dan <b>{hilang.length} reklasifikasi barang hilang</b> dengan dasar BA {nomorBA}. Transaksi tidak dapat dibatalkan dan lembar kerja dikunci.</>,
+      ya: 'Selesaikan & bukukan',
+    }))) return
     setProses(true)
     setPesan(null)
     const dokumen = { jenis: 'Berita Acara Inventarisasi', nomor: nomorBA, tanggal: sesi.tanggal }
@@ -106,7 +113,7 @@ function Lembar({ sesi }) {
         hasil, nomorBA, status: 'selesai',
         ringkasan: { diperiksa: objek.length, ditemukan: objek.length - hilang.length, kondisiBerubah: berubah.length, tidakDitemukan: hilang.length },
       })
-      setPesan({ tone: 'teal', teks: 'Inventarisasi selesai dan hasilnya telah dibukukan.' })
+      toast.sukses('Inventarisasi selesai dan hasilnya telah dibukukan.')
     } catch (e) {
       setPesan({ tone: 'rose', teks: e.message })
     } finally {

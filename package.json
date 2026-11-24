@@ -13,7 +13,10 @@
     "emulators": "firebase emulators:start --only firestore,auth --project demo-simantap"
   },
   "dependencies": {
+    "fflate": "^0.8.3",
     "firebase": "^11.0.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.9",
     "lucide-react": "^0.460.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",

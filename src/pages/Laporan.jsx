@@ -4,7 +4,7 @@ import { useSatker } from '../lib/satker.jsx'
 import { useCollection } from '../lib/hooks.js'
 import { AKUN, KONDISI, akunAset, hitungLBKP, hitungPenyusutan, hitungPenyusutanPerAkun, kelompokNeraca, rupiah, saldoDariAset, tanggalID } from '../lib/bmn.js'
 import PerluSatker from '../components/PerluSatker.jsx'
-import { Alert, Button, Card, PageHeader, Select, Table, Tabs, Td } from '../components/ui.jsx'
+import { Alert, Button, Card, PageHeader, Select, Table, Tabs, Td, TombolEkspor } from '../components/ui.jsx'
 
 const TABS = [
   ['lbkp', 'LBKP'],
@@ -36,6 +36,13 @@ export default function Laporan() {
     </>
   )
 }
+
+/** Kop untuk ekspor: judul + satker + periode. */
+function useKop() {
+  const { satker } = useSatker()
+  return (judul, periode) => ({ judul, sheet: judul, subjudul: [`${satker?.kode || ''} · ${satker?.nama || ''}`, periode].filter(Boolean) })
+}
+const TTD_KPB = ['Kuasa Pengguna Barang']
 
 function KopLaporan({ judul, periode }) {
   const { satker } = useSatker()
@@ -82,8 +89,17 @@ function LBKP() {
   const dariAset = saldoDariAset(aset)
   const selisih = cakupPenuh ? AKUN.filter((a) => (rows.find((r) => r.akun === a)?.saldoAkhir || 0) !== (dariAset[a] || 0)) : []
 
+  const kop = useKop()
+  const ekspor = () => ({
+    ...kop('Laporan Barang Kuasa Pengguna — Intrakomptabel', label),
+    sheet: 'LBKP',
+    kolom: [{ label: 'Akun' }, { label: 'Kelompok' }, { label: 'Saldo awal', tipe: 'uang' }, { label: 'Mutasi tambah', tipe: 'uang' }, { label: 'Mutasi kurang', tipe: 'uang' }, { label: 'Saldo akhir', tipe: 'uang' }, { label: 'Akum. penyusutan', tipe: 'uang' }, { label: 'Nilai buku', tipe: 'uang' }],
+    baris: tampil.map((r) => [r.akun, kelompokNeraca(r.akun), r.saldoAwal, r.tambah, -r.kurang, r.saldoAkhir, susut[r.akun] || 0, r.saldoAkhir - (susut[r.akun] || 0)]),
+    total: ['Jumlah', '', total.saldoAwal, total.tambah, -total.kurang, total.saldoAkhir, totalSusut, total.saldoAkhir - totalSusut],
+  })
+
   return (
-    <Card actions={<Select value={periode} onChange={(e) => setPeriode(e.target.value)} options={opsiPeriode()} className="w-64 print:hidden" />}>
+    <Card actions={<><Select value={periode} onChange={(e) => setPeriode(e.target.value)} options={opsiPeriode()} className="w-64 print:hidden" /><TombolEkspor nama={`LBKP ${label}`} laporan={ekspor} tandaTangan={TTD_KPB} /></>}>
       <KopLaporan judul="Laporan Barang Kuasa Pengguna — Intrakomptabel" periode={label} />
       <Table
         head={['Akun', 'Kelompok', { label: 'Saldo awal', right: true }, { label: 'Mutasi tambah', right: true }, { label: 'Mutasi kurang', right: true }, { label: 'Saldo akhir', right: true }, { label: 'Akum. penyusutan', right: true }, { label: 'Nilai buku', right: true }]}
@@ -128,8 +144,16 @@ function DBKP() {
   const [akun, setAkun] = useState('')
   const list = aset.filter((a) => a.intrakomptabel && a.status === 'aktif' && (!akun || akunAset(a) === akun)).sort((a, b) => a.kodeBarang.localeCompare(b.kodeBarang) || a.nup - b.nup)
   const hariIni = new Date()
+  const kop = useKop()
+  const judul = `Daftar Barang Kuasa Pengguna${akun ? ` — ${akun}` : ''}`
+  const ekspor = () => ({
+    ...kop(judul, `Per ${tanggalID(hariIni)}`), sheet: 'DBKP',
+    kolom: [{ label: 'No', tipe: 'angka' }, { label: 'Kode barang' }, { label: 'NUP', tipe: 'angka' }, { label: 'Nama barang' }, { label: 'Merk/tipe' }, { label: 'Tgl perolehan' }, { label: 'Kondisi' }, { label: 'Nilai perolehan', tipe: 'uang' }, { label: 'Nilai buku', tipe: 'uang' }],
+    baris: list.map((a, i) => [i + 1, a.kodeBarang, a.nup, a.namaBarang, a.merk, tanggalID(a.tglPerolehan), KONDISI[a.kondisi], a.nilai, hitungPenyusutan(a, hariIni).nilaiBuku]),
+    total: ['Jumlah', '', '', '', '', '', '', list.reduce((s, a) => s + a.nilai, 0), list.reduce((s, a) => s + hitungPenyusutan(a, hariIni).nilaiBuku, 0)],
+  })
   return (
-    <Card actions={<Select value={akun} onChange={(e) => setAkun(e.target.value)} placeholder="Semua akun" options={AKUN.map((a) => ({ value: a, label: a }))} className="w-60 print:hidden" />}>
+    <Card actions={<><Select value={akun} onChange={(e) => setAkun(e.target.value)} placeholder="Semua akun" options={AKUN.map((a) => ({ value: a, label: a }))} className="w-60 print:hidden" /><TombolEkspor nama={judul} laporan={ekspor} tandaTangan={TTD_KPB} /></>}>
       <KopLaporan judul={`Daftar Barang Kuasa Pengguna${akun ? ` — ${akun}` : ''}`} periode={`Per ${tanggalID(hariIni)}`} />
       <Table head={['No', 'Kode barang', 'NUP', 'Nama barang', 'Merk/tipe', 'Tgl perolehan', 'Kondisi', { label: 'Nilai perolehan', right: true }, { label: 'Nilai buku', right: true }]} empty={list.length ? null : 'Tidak ada data.'}
         footer={list.length ? <tr><Td colSpan={7}>Jumlah</Td><Td right>{rupiah(list.reduce((s, a) => s + a.nilai, 0))}</Td><Td right>{rupiah(list.reduce((s, a) => s + hitungPenyusutan(a, hariIni).nilaiBuku, 0))}</Td></tr> : null}>
@@ -152,8 +176,16 @@ function BukuIntraEkstra() {
     ['Buku Barang Ekstrakomptabel', aktif.filter((a) => !a.intrakomptabel && !a.bersejarah)],
     ['Buku Barang Bersejarah (tanpa nilai)', aktif.filter((a) => a.bersejarah)],
   ]
+  const kop = useKop()
+  const ekspor = () => grup.map(([judul, list], i) => ({
+    ...kop(judul, `Per ${tanggalID(new Date())}`), sheet: ['Intrakomptabel', 'Ekstrakomptabel', 'Bersejarah'][i],
+    kolom: [{ label: 'Kode barang' }, { label: 'NUP', tipe: 'angka' }, { label: 'Nama barang' }, { label: 'Lokasi' }, { label: 'Nilai', tipe: 'uang' }],
+    baris: list.map((a) => [a.kodeBarang, a.nup, a.namaBarang, a.lokasiRuang, a.nilai]),
+    total: [`${list.length} NUP`, '', '', '', list.reduce((s, a) => s + a.nilai, 0)],
+  }))
   return (
     <div className="space-y-5">
+      <div className="flex justify-end"><TombolEkspor nama="Buku Barang Intra Ekstra Bersejarah" laporan={ekspor} /></div>
       {grup.map(([judul, list]) => (
         <Card key={judul}>
           <KopLaporan judul={judul} />
@@ -174,8 +206,17 @@ function DBR() {
   const [r, setR] = useState('')
   const pilih = r || ruang[0] || ''
   const list = aktif.filter((a) => (a.lokasiRuang || '(belum ditentukan)') === pilih)
+  const kop = useKop()
+  const dbr = (nama) => {
+    const isi = aktif.filter((a) => (a.lokasiRuang || '(belum ditentukan)') === nama)
+    return {
+      ...kop(`Daftar Barang Ruangan — ${nama}`, `Per ${tanggalID(new Date())}`), sheet: nama,
+      kolom: [{ label: 'No', tipe: 'angka' }, { label: 'Kode barang' }, { label: 'NUP', tipe: 'angka' }, { label: 'Nama barang' }, { label: 'Merk/tipe' }, { label: 'Kondisi' }, { label: 'Keterangan' }],
+      baris: isi.map((a, i) => [i + 1, a.kodeBarang, a.nup, a.namaBarang, a.merk, KONDISI[a.kondisi], a.intrakomptabel ? '' : 'Ekstrakomptabel']),
+    }
+  }
   return (
-    <Card actions={<Select value={pilih} onChange={(e) => setR(e.target.value)} options={ruang.map((v) => ({ value: v, label: v }))} className="w-60 print:hidden" />}>
+    <Card actions={<><Select value={pilih} onChange={(e) => setR(e.target.value)} options={ruang.map((v) => ({ value: v, label: v }))} className="w-60 print:hidden" /><TombolEkspor nama="DBR semua ruangan" laporan={() => ruang.map(dbr)} tandaTangan={['Penanggung Jawab Ruangan', 'Kuasa Pengguna Barang']} /></>}>
       <KopLaporan judul={`Daftar Barang Ruangan — ${pilih}`} periode={`Per ${tanggalID(new Date())}`} />
       <Table head={['No', 'Kode barang', 'NUP', 'Nama barang', 'Merk/tipe', 'Kondisi', 'Keterangan']} empty={list.length ? null : 'Tidak ada barang.'}>
         {list.map((a, i) => <tr key={a.id}><Td>{i + 1}</Td><Td className="font-mono text-xs">{a.kodeBarang}</Td><Td>{a.nup}</Td><Td>{a.namaBarang}</Td><Td>{a.merk}</Td><Td>{KONDISI[a.kondisi]}</Td><Td>{a.intrakomptabel ? '' : 'Ekstrakomptabel'}</Td></tr>)}
@@ -188,11 +229,23 @@ function DBR() {
   )
 }
 
+const DAFTAR_RB = [['rusak_berat', 'Daftar Barang Rusak Berat'], ['hilang', 'Daftar Barang Hilang'], ['dihentikan', 'Aset Tetap yang Dihentikan dari Penggunaan']]
+
 function DaftarRB() {
   const { aset } = useSatker()
+  const kop = useKop()
+  const ekspor = () => DAFTAR_RB.map(([st, judul]) => {
+    const list = aset.filter((a) => a.status === st)
+    return {
+      ...kop(judul, `Per ${tanggalID(new Date())}`), sheet: { rusak_berat: 'Rusak Berat', hilang: 'Hilang', dihentikan: 'Dihentikan' }[st],
+      kolom: [{ label: 'Kode barang' }, { label: 'NUP', tipe: 'angka' }, { label: 'Nama barang' }, { label: 'Lokasi' }, { label: 'Nilai', tipe: 'uang' }],
+      baris: list.map((a) => [a.kodeBarang, a.nup, a.namaBarang, a.lokasiRuang, a.nilai]),
+    }
+  })
   return (
     <div className="space-y-5">
-      {[['rusak_berat', 'Daftar Barang Rusak Berat'], ['hilang', 'Daftar Barang Hilang'], ['dihentikan', 'Aset Tetap yang Dihentikan dari Penggunaan']].map(([st, judul]) => {
+      <div className="flex justify-end"><TombolEkspor nama="Daftar Barang Rusak Berat dan Hilang" laporan={ekspor} /></div>
+      {DAFTAR_RB.map(([st, judul]) => {
         const list = aset.filter((a) => a.status === st)
         return (
           <Card key={st}>
@@ -210,8 +263,15 @@ function DaftarRB() {
 function PNBP() {
   const { satkerId } = useSatker()
   const { data } = useCollection(['satker', satkerId, 'pnbp'])
+  const kop = useKop()
+  const ekspor = () => ({
+    ...kop('Buku PNBP dari Pengelolaan BMN'), sheet: 'PNBP',
+    kolom: [{ label: 'Tanggal' }, { label: 'Sumber' }, { label: 'Mitra' }, { label: 'Nomor SK' }, { label: 'Nilai', tipe: 'uang' }],
+    baris: data.map((d) => [tanggalID(d.tanggal), d.sumber, d.mitra, d.nomorSK, d.nilai]),
+    total: ['Jumlah', '', '', '', data.reduce((s, d) => s + d.nilai, 0)],
+  })
   return (
-    <Card>
+    <Card actions={<TombolEkspor nama="Buku PNBP" laporan={ekspor} />}>
       <KopLaporan judul="Buku PNBP dari Pengelolaan BMN" />
       <Table head={['Tanggal', 'Sumber', 'Mitra', 'Nomor SK', { label: 'Nilai', right: true }]} empty={data.length ? null : 'Belum ada PNBP. PNBP tercatat otomatis saat usulan sewa disetujui.'}
         footer={data.length ? <tr><Td colSpan={4}>Jumlah</Td><Td right>{rupiah(data.reduce((s, d) => s + d.nilai, 0))}</Td></tr> : null}>

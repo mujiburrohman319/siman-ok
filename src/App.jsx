@@ -1,20 +1,24 @@
+import { Suspense, lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { configOk } from './lib/firebase.js'
 import { AuthProvider, useAuth } from './lib/auth.jsx'
 import { SatkerProvider } from './lib/satker.jsx'
 import Layout from './components/Layout.jsx'
 import { Loading } from './components/ui.jsx'
+import { UmpanProvider } from './components/umpan.jsx'
 import Login from './pages/Login.jsx'
-import Dashboard from './pages/Dashboard.jsx'
-import Aset from './pages/Aset.jsx'
-import Transaksi from './pages/Transaksi.jsx'
-import Inventarisasi from './pages/Inventarisasi.jsx'
-import Laporan from './pages/Laporan.jsx'
-import RKBMN from './pages/RKBMN.jsx'
-import Usulan from './pages/Usulan.jsx'
-import Telaah from './pages/Telaah.jsx'
-import Kelas from './pages/Kelas.jsx'
-import Referensi from './pages/Referensi.jsx'
+
+// Tiap halaman dimuat saat dibuka agar unduhan awal kecil (jaringan seluler kampus).
+const Dashboard = lazy(() => import('./pages/Dashboard.jsx'))
+const Aset = lazy(() => import('./pages/Aset.jsx'))
+const Transaksi = lazy(() => import('./pages/Transaksi.jsx'))
+const Inventarisasi = lazy(() => import('./pages/Inventarisasi.jsx'))
+const Laporan = lazy(() => import('./pages/Laporan.jsx'))
+const RKBMN = lazy(() => import('./pages/RKBMN.jsx'))
+const Usulan = lazy(() => import('./pages/Usulan.jsx'))
+const Telaah = lazy(() => import('./pages/Telaah.jsx'))
+const Kelas = lazy(() => import('./pages/Kelas.jsx'))
+const Referensi = lazy(() => import('./pages/Referensi.jsx'))
 
 function Gate() {
   const { user, profil, isStaff, loading } = useAuth()
@@ -51,8 +55,10 @@ export default function App() {
     )
   }
   return (
-    <AuthProvider>
-      <Gate />
-    </AuthProvider>
+    <UmpanProvider>
+      <AuthProvider>
+        <Gate />
+      </AuthProvider>
+    </UmpanProvider>
   )
 }
