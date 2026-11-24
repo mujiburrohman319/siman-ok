@@ -34,6 +34,14 @@ Deploy hosting: `npm run build && firebase deploy --only hosting` (atau Firebase
 3. Daftar akun, lalu ubah `role` menjadi `pengelola` lewat antarmuka emulator (tab Firestore).
    Data emulator hilang saat emulator dimatikan.
 
+## Fitur utama
+
+- Penatausahaan: Daftar Aset & KIB, 29 jenis transaksi, persediaan (FIFO, opname), inventarisasi, LBKP, Neraca BMN, DBR, ekspor Excel/PDF.
+- Pengawasan: wasdal otomatis dengan skor kepatuhan; rekonsiliasi SIMAK–SAKTI dengan Berita Acara.
+- Perencanaan & pengelolaan: RKBMN (reviu APIP, penelaahan, usulan perubahan), usulan pengelolaan 13 jenis.
+- Pembelajaran: skenario kasus dengan kunci jawaban, penilaian otomatis per rubrik Sub-CPMK, rekap nilai Excel.
+- Lampiran dokumen sumber & foto (≤2 MB, disimpan di Firestore); impor kodefikasi barang resmi dari CSV (menu Referensi).
+
 ## Alur praktikum
 
 | Pertemuan | Menu |

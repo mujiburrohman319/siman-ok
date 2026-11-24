@@ -47,8 +47,19 @@ export const KODE_BARANG = [
   { kode: '8.01.01.01.001', uraian: 'Software Aplikasi', kib: null, masaManfaat: 4 },
 ]
 
+// ---------------------------------------------------------------- kodefikasi aktif
+// Dosen dapat mengimpor kodefikasi resmi dari CSV (menu Referensi → referensi/kodefikasi*). Daftar itu dimuat
+// saat masuk (src/lib/auth.jsx) dan dipasang di sini; pencarian kembali ke daftar contoh bila kode tidak ada
+// sehingga aset lama tetap terbaca.
+let aktif = null
+export function setKodefikasi(list) {
+  aktif = list?.length ? new Map(list.map((k) => [k.kode, k])) : null
+}
+export const daftarKode = () => (aktif ? [...aktif.values()] : KODE_BARANG)
+export const kodefikasiResmi = () => !!aktif
+
 export function cariKode(kode) {
-  return KODE_BARANG.find((k) => k.kode === kode) || null
+  return aktif?.get(kode) || KODE_BARANG.find((k) => k.kode === kode) || null
 }
 
 export function golonganDari(kode) {

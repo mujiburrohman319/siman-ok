@@ -8,7 +8,7 @@ import { simpanNilai, simpanSkenario } from '../lib/db.js'
 import { JENIS_TRANSAKSI, KONDISI, rupiah, tanggalID } from '../lib/bmn.js'
 import { SUMBER_RUBRIK, nilaiSkenario, templatSkenario } from '../lib/penilaian.js'
 import { skorKepatuhan, temuanWasdal } from '../lib/wasdal.js'
-import { KODE_BARANG } from '../data/kodeBarang.js'
+import PilihKode from '../components/PilihKode.jsx'
 import { Alert, Badge, Button, Card, Field, Input, Kosong, Modal, PageHeader, Select, Table, Tabs, Td, Textarea, TombolEkspor } from '../components/ui.jsx'
 import { useKonfirmasi, useToast } from '../components/umpan.jsx'
 
@@ -248,10 +248,10 @@ function Editor({ id, kelasId, awal, onSimpan }) {
                     <Field label="Tanggal"><Input type="date" value={k.tanggal || ''} onChange={(e) => ubahKunci(l.id, { tanggal: e.target.value })} /></Field>
                     <Field label="Nomor dokumen"><Input value={k.nomorDokumen || ''} onChange={(e) => ubahKunci(l.id, { nomorDokumen: e.target.value })} /></Field>
                     {k.jenis && (tambah ? (
-                      <Field label="Kode barang" className="sm:col-span-2"><Select value={k.kodeBarang || ''} onChange={(e) => ubahKunci(l.id, { kodeBarang: e.target.value })} placeholder="— pilih —" options={KODE_BARANG.map((x) => ({ value: x.kode, label: `${x.kode} ${x.uraian}` }))} /></Field>
+                      <Field label="Kode barang" className="sm:col-span-2"><PilihKode value={k.kodeBarang || ''} onChange={(v) => ubahKunci(l.id, { kodeBarang: v })} /></Field>
                     ) : (
                       <>
-                        <Field label="Kode barang sasaran"><Select value={k.target?.kodeBarang || ''} onChange={(e) => ubahKunci(l.id, { target: { ...k.target, kodeBarang: e.target.value } })} placeholder="— pilih —" options={KODE_BARANG.map((x) => ({ value: x.kode, label: `${x.kode} ${x.uraian}` }))} /></Field>
+                        <Field label="Kode barang sasaran"><PilihKode value={k.target?.kodeBarang || ''} onChange={(v) => ubahKunci(l.id, { target: { ...k.target, kodeBarang: v } })} /></Field>
                         <Field label="NUP sasaran"><Input type="number" min="1" value={k.target?.nup || ''} onChange={(e) => ubahKunci(l.id, { target: { ...k.target, nup: Number(e.target.value) } })} /></Field>
                       </>
                     ))}

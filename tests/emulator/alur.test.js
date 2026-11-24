@@ -333,3 +333,28 @@ describe('lampiran dokumen sumber', () => {
     await ditolak(lib.ambilLampiran(s1.id, l))
   })
 })
+
+describe('impor kodefikasi resmi', () => {
+  test('dosen mengimpor 6.000 kode; mahasiswa memuat dan memakainya; mahasiswa tidak dapat mengubah', async () => {
+    const { setKodefikasi, cariKode } = await import('../../src/data/kodeBarang.js')
+    const list = Array.from({ length: 6000 }, (_, i) => ({ kode: `3.${String(10 + (i % 80)).padStart(2, '0')}.01.${String(1 + Math.floor(i / 80)).padStart(2, '0')}.${String(1 + (i % 999)).padStart(3, '0')}`, uraian: `Barang resmi ${i}`, kib: null, masaManfaat: 5, aab: false }))
+    const unik = [...new Map(list.map((k) => [k.kode, k])).values()]
+    await masuk('dosen')
+    await lib.simpanKodefikasi(unik, { sumber: 'resmi.csv', oleh: 'Dr. Dosen' })
+    await masuk('mhs1')
+    const meta = (await getDoc(doc(db, 'referensi', 'kodefikasi'))).data()
+    assert.equal(meta.jumlahBagian, Math.ceil(unik.length / 2500))
+    const dimuat = await lib.muatKodefikasi(meta)
+    assert.equal(dimuat.length, unik.length)
+    setKodefikasi(dimuat)
+    const k = unik[4321]
+    assert.equal(cariKode(k.kode).uraian, k.uraian)
+    await lib.catatTransaksi({ satkerId: s1.id, asetId: null, uid: uid.mhs1, input: { jenis: 'pembelian', tanggal: '2026-07-01', kodeBarang: k.kode, nup: 1, nilai: 2_000_000, dokumen: { jenis: 'BAST', nomor: 'RESMI-1' } } })
+    setKodefikasi(null)
+    const { setDoc } = await import('firebase/firestore')
+    await ditolak(setDoc(doc(db, 'referensi', 'kodefikasi_0'), { daftar: [] }))
+    await masuk('dosen')
+    await lib.hapusKodefikasi(meta.jumlahBagian)
+    assert.equal((await getDoc(doc(db, 'referensi', 'kodefikasi'))).exists(), false)
+  })
+})

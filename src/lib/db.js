@@ -1,12 +1,13 @@
 // Lapisan data Firestore. Semua penulisan aset + transaksi dilakukan atomik (runTransaction)
 // sehingga Daftar Barang dan Buku Barang selalu konsisten.
 import {
-  addDoc, collection, deleteDoc, doc, getDocs, query, runTransaction, serverTimestamp, setDoc, updateDoc, where, writeBatch, arrayUnion,
+  addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, runTransaction, serverTimestamp, setDoc, updateDoc, where, writeBatch, arrayUnion,
 } from 'firebase/firestore'
 import { db } from './firebase.js'
 import { terapkanTransaksi, aksiPersetujuan, REFERENSI_DEFAULT, TransaksiError } from './bmn.js'
 import { PersediaanError, terapkanMutasi } from './persediaan.js'
 import { potong } from './lampiran.js'
+import { bagiKodefikasi } from './kodefikasi.js'
 
 const col = (...p) => collection(db, ...p)
 
@@ -275,4 +276,27 @@ export async function hapusLampiran(satkerId, l) {
   for (let i = 0; i < l.jumlahPotong; i++) b.delete(doc(db, 'satker', satkerId, 'lampiran', l.id, 'potong', String(i)))
   b.delete(doc(db, 'satker', satkerId, 'lampiran', l.id))
   await b.commit()
+}
+
+// ---------------------------------------------------------------- Kodefikasi barang (impor CSV)
+// referensi/kodefikasi = metadata; referensi/kodefikasi_{i} = {daftar:[...]} per ≤2.500 kode.
+export async function simpanKodefikasi(list, { sumber, oleh, lamaBagian = 0 }) {
+  const bagian = bagiKodefikasi(list)
+  const b = writeBatch(db)
+  bagian.forEach((daftar, i) => b.set(doc(db, 'referensi', `kodefikasi_${i}`), { daftar }))
+  for (let i = bagian.length; i < lamaBagian; i++) b.delete(doc(db, 'referensi', `kodefikasi_${i}`))
+  b.set(doc(db, 'referensi', 'kodefikasi'), { jumlah: list.length, jumlahBagian: bagian.length, sumber, oleh, tanggal: new Date().toISOString(), updatedAt: serverTimestamp() })
+  await b.commit()
+}
+
+export async function hapusKodefikasi(lamaBagian = 0) {
+  const b = writeBatch(db)
+  for (let i = 0; i < lamaBagian; i++) b.delete(doc(db, 'referensi', `kodefikasi_${i}`))
+  b.delete(doc(db, 'referensi', 'kodefikasi'))
+  await b.commit()
+}
+
+export async function muatKodefikasi(meta) {
+  const docs = await Promise.all(Array.from({ length: meta?.jumlahBagian || 0 }, (_, i) => getDoc(doc(db, 'referensi', `kodefikasi_${i}`))))
+  return docs.flatMap((d) => (d.exists() ? d.data().daftar || [] : []))
 }

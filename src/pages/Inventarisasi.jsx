@@ -41,7 +41,7 @@ function Isi() {
     <div className="space-y-5">
       <Card title="Mulai inventarisasi">
         <div className="flex flex-wrap items-end gap-3">
-          <Field label="Jenis"><Select value={baru.jenis} onChange={(e) => setBaru({ ...baru, jenis: e.target.value })} options={Object.entries(JENIS).map(([value, label]) => ({ value, label }))} className="w-96" /></Field>
+          <Field label="Jenis" className="w-full sm:w-auto"><Select value={baru.jenis} onChange={(e) => setBaru({ ...baru, jenis: e.target.value })} options={Object.entries(JENIS).map(([value, label]) => ({ value, label }))} className="w-full sm:w-96" /></Field>
           <Field label="Tanggal"><Input type="date" value={baru.tanggal} onChange={(e) => setBaru({ ...baru, tanggal: e.target.value })} /></Field>
           <Button onClick={mulai}>Mulai</Button>
         </div>

@@ -4,7 +4,7 @@ import { useAuth } from '../lib/auth.jsx'
 import { useSatker } from '../lib/satker.jsx'
 import { useDoc } from '../lib/hooks.js'
 import { rkbmnId, simpanPerubahanRKBMN, simpanRKBMN } from '../lib/db.js'
-import { KODE_BARANG } from '../data/kodeBarang.js'
+import PilihKode from '../components/PilihKode.jsx'
 import { KONDISI, bandingkanBarisRKBMN, bolehUsulPerubahan, cekObjekPemeliharaan, rupiah, validasiBarisPengadaan } from '../lib/bmn.js'
 import PerluSatker from '../components/PerluSatker.jsx'
 import { Alert, Badge, Button, Card, Field, Input, PageHeader, Select, Table, Td, Textarea } from '../components/ui.jsx'
@@ -169,7 +169,7 @@ function TabelPengadaan({ baris, setBaris, edit }) {
                 <Select disabled={!edit} value={b.sbskId} onChange={(e) => ubah(i, 'sbskId', e.target.value)} placeholder="— SBSK —" options={sbskOpt} className="w-52" />
                 <Input disabled={!edit} type="number" min="0" placeholder="jumlah dasar (pegawai/pejabat)" value={b.dasarJumlah} onChange={(e) => ubah(i, 'dasarJumlah', e.target.value)} className="mt-1 w-52" />
               </Td>
-              <Td><Select disabled={!edit} value={b.kodeBarang} onChange={(e) => ubah(i, 'kodeBarang', e.target.value)} placeholder="— kode barang —" options={KODE_BARANG.map((k) => ({ value: k.kode, label: `${k.kode} ${k.uraian}` }))} className="w-52" /></Td>
+              <Td><PilihKode disabled={!edit} value={b.kodeBarang} onChange={(v) => ubah(i, 'kodeBarang', v)} className="w-56" /></Td>
               <Td right>{b.kebutuhanSBSK}</Td>
               <Td right>{b.tersedia}{b.idle ? <span className="block text-xs text-amber-700">idle {b.idle}</span> : null}</Td>
               <Td><Input disabled={!edit} type="number" min="0" value={b.usulan} onChange={(e) => ubah(i, 'usulan', e.target.value)} className="w-20 text-right" /></Td>

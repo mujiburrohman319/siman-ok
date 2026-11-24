@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
-import { Plus, Trash2 } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Download, FileUp, Plus, RotateCcw, Search, Trash2 } from 'lucide-react'
 import { useAuth } from '../lib/auth.jsx'
-import { simpanReferensi } from '../lib/db.js'
-import { KODE_BARANG } from '../data/kodeBarang.js'
+import { hapusKodefikasi, simpanKodefikasi, simpanReferensi } from '../lib/db.js'
+import { KODE_BARANG, daftarKode } from '../data/kodeBarang.js'
+import { keCSV, parseKodefikasi } from '../lib/kodefikasi.js'
+import { useKonfirmasi, useToast } from '../components/umpan.jsx'
 import { REFERENSI_DEFAULT, rupiah } from '../lib/bmn.js'
-import { Alert, Button, Card, Field, Input, PageHeader, Table, Td } from '../components/ui.jsx'
+import { Alert, Badge, Button, Card, Field, Input, PageHeader, Paging, Table, Td, usePaging } from '../components/ui.jsx'
 
 export default function Referensi() {
   const { ref } = useAuth()
@@ -59,13 +61,102 @@ export default function Referensi() {
           </div>
         </Card>
 
-        <Card title={`Kodefikasi barang contoh (${KODE_BARANG.length})`} className="lg:col-span-2">
-          <p className="mb-3 text-xs text-slate-500">Daftar ilustratif di <code>src/data/kodeBarang.js</code>. Untuk memakai tabel resmi, ganti file tersebut (lihat CLAUDE.md).</p>
-          <Table head={['Kode', 'Uraian', 'KIB', { label: 'Masa manfaat', right: true }]}>
-            {KODE_BARANG.map((k) => <tr key={k.kode}><Td className="font-mono text-xs">{k.kode}</Td><Td>{k.uraian}</Td><Td>{k.kib || '—'}</Td><Td right>{k.masaManfaat ? `${k.masaManfaat} th` : '—'}</Td></tr>)}
-          </Table>
-        </Card>
+        <Kodefikasi />
       </div>
     </>
+  )
+}
+
+function Kodefikasi() {
+  const { kodefikasi, profil } = useAuth()
+  const toast = useToast()
+  const konfirmasi = useKonfirmasi()
+  const input = useRef(null)
+  const [cari, setCari] = useState('')
+  const [hasil, setHasil] = useState(null) // {nama, data, galat}
+  const [proses, setProses] = useState(false)
+  const aktif = daftarKode()
+  const list = useMemo(() => {
+    const q = cari.trim().toLowerCase()
+    return q ? aktif.filter((k) => `${k.kode} ${k.uraian}`.toLowerCase().includes(q)) : aktif
+  }, [aktif, cari, kodefikasi]) // eslint-disable-line react-hooks/exhaustive-deps
+  const paging = usePaging(list, 25)
+
+  function unduhCSV() {
+    const url = URL.createObjectURL(new Blob(['\uFEFF' + keCSV(aktif)], { type: 'text/csv;charset=utf-8' }))
+    Object.assign(document.createElement('a'), { href: url, download: kodefikasi ? 'kodefikasi-aktif.csv' : 'templat-kodefikasi.csv' }).click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+
+  async function pilih(e) {
+    const f = e.target.files[0]
+    e.target.value = ''
+    if (!f) return
+    setHasil({ nama: f.name, ...parseKodefikasi(await f.text()) })
+  }
+
+  async function terapkan() {
+    if (!(await konfirmasi({
+      judul: `Terapkan ${hasil.data.length.toLocaleString('id-ID')} kode barang?`,
+      pesan: <>Kodefikasi aktif untuk semua satker diganti. Masa manfaat baru berlaku untuk aset yang diperoleh setelah ini; aset lama tetap memakai masa manfaat saat dicatat.{hasil.galat.length ? <> <b>{hasil.galat.length} baris bergalat</b> akan dilewati.</> : null}</>,
+      ya: 'Terapkan',
+    }))) return
+    setProses(true)
+    try {
+      await simpanKodefikasi(hasil.data, { sumber: hasil.nama, oleh: profil.nama, lamaBagian: kodefikasi?.jumlahBagian || 0 })
+      toast.sukses('Kodefikasi resmi diterapkan.')
+      setHasil(null)
+    } catch (e) {
+      toast.galat(e)
+    } finally {
+      setProses(false)
+    }
+  }
+
+  async function kembalikan() {
+    if (!(await konfirmasi({ judul: 'Kembali ke kodefikasi contoh?', pesan: 'Kodefikasi hasil impor dihapus; aplikasi memakai daftar contoh bawaan.', ya: 'Kembalikan', bahaya: true }))) return
+    await hapusKodefikasi(kodefikasi?.jumlahBagian || 0)
+    toast.info('Kodefikasi contoh dipakai kembali.')
+  }
+
+  return (
+    <Card className="lg:col-span-2" title={`Kodefikasi barang (${aktif.length.toLocaleString('id-ID')})`}
+      desc={kodefikasi ? `Resmi: ${kodefikasi.sumber} · diimpor ${new Date(kodefikasi.tanggal).toLocaleDateString('id-ID')} oleh ${kodefikasi.oleh}` : `Daftar contoh bawaan (${KODE_BARANG.length} kode) — ganti dengan tabel resmi`}
+      actions={<>
+        <Button size="sm" variant="secondary" onClick={unduhCSV}><Download size={14} /> {kodefikasi ? 'Unduh CSV' : 'Unduh templat CSV'}</Button>
+        <input ref={input} type="file" accept=".csv,text/csv,text/plain" className="hidden" onChange={pilih} />
+        <Button size="sm" onClick={() => input.current?.click()}><FileUp size={14} /> Impor CSV</Button>
+        {kodefikasi && <Button size="sm" variant="ghost" onClick={kembalikan}><RotateCcw size={14} /> Pakai contoh</Button>}
+      </>}>
+      {hasil && (
+        <div className="mb-5 space-y-3 rounded-xl border border-slate-200 p-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="text-sm font-medium text-slate-800">{hasil.nama}</p>
+            <Badge tone="teal">{hasil.data.length.toLocaleString('id-ID')} kode valid</Badge>
+            {hasil.galat.length > 0 && <Badge tone="rose">{hasil.galat.length} baris bergalat</Badge>}
+          </div>
+          {hasil.galat.length > 0 && (
+            <ul className="max-h-40 space-y-0.5 overflow-y-auto rounded-lg bg-rose-50 p-3 text-xs text-rose-800">
+              {hasil.galat.slice(0, 100).map((g, i) => <li key={i}>Baris {g.baris}: {g.pesan}</li>)}
+              {hasil.galat.length > 100 && <li>… dan {hasil.galat.length - 100} lainnya</li>}
+            </ul>
+          )}
+          {hasil.data.length > 0 && <p className="text-xs text-slate-500">Contoh: {hasil.data.slice(0, 3).map((k) => `${k.kode} ${k.uraian}`).join(' · ')}</p>}
+          <div className="flex gap-2">
+            <Button onClick={terapkan} disabled={proses || !hasil.data.length}>{proses ? 'Menyimpan…' : 'Terapkan kodefikasi'}</Button>
+            <Button variant="ghost" onClick={() => setHasil(null)}>Batal</Button>
+          </div>
+        </div>
+      )}
+      <p className="mb-3 text-xs text-slate-500">Format CSV: kolom <code>kode;uraian;kib;masa_manfaat;aab</code> (pemisah ; , atau tab). KIB: tanah, gedung, bangunan_air, aab, alat_besar, atau kosong. Masa manfaat dalam tahun sesuai KMK yang berlaku.</p>
+      <label className="relative mb-3 block max-w-sm">
+        <Search size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+        <Input placeholder="Cari kode atau uraian…" value={cari} onChange={(e) => setCari(e.target.value)} className="w-full pl-9" />
+      </label>
+      <Table head={['Kode', 'Uraian', 'KIB', { label: 'Masa manfaat', right: true }]} empty={list.length ? null : 'Tidak ada kode yang cocok.'}>
+        {paging.isi.map((k) => <tr key={k.kode}><Td className="font-mono text-xs">{k.kode}</Td><Td>{k.uraian}</Td><Td>{k.kib || '—'}</Td><Td right>{k.masaManfaat ? `${k.masaManfaat} th` : '—'}</Td></tr>)}
+      </Table>
+      <Paging {...paging} />
+    </Card>
   )
 }

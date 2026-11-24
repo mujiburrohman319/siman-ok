@@ -3,7 +3,8 @@ import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '../lib/auth.jsx'
 import { useSatker } from '../lib/satker.jsx'
 import { catatTransaksi } from '../lib/db.js'
-import { KODE_BARANG, cariKode } from '../data/kodeBarang.js'
+import { cariKode } from '../data/kodeBarang.js'
+import PilihKode from '../components/PilihKode.jsx'
 import { KIB } from '../data/kib.js'
 import { DOKUMEN_SUMBER, JENIS_TRANSAKSI, KONDISI, isIntrakomptabel, nupBerikutnya, rupiah, tanggalID } from '../lib/bmn.js'
 import PerluSatker from '../components/PerluSatker.jsx'
@@ -121,8 +122,8 @@ function FormTransaksi() {
 
         {def.kelompok === 'tambah' ? (
           <>
-            <Field label="Kode barang" hint={kode ? `Masa manfaat ${kode.masaManfaat || '—'} th · NUP berikutnya ${nupBerikutnya(aset, f.kodeBarang)}` : 'Contoh kodefikasi; dosen dapat mengganti dengan tabel resmi'}>
-              <Select required value={f.kodeBarang} onChange={(e) => set('kodeBarang', e.target.value)} placeholder="— pilih —" options={KODE_BARANG.map((k) => ({ value: k.kode, label: `${k.kode} ${k.uraian}` }))} />
+            <Field label="Kode barang" hint={kode ? `Masa manfaat ${kode.masaManfaat || '—'} th · NUP berikutnya ${nupBerikutnya(aset, f.kodeBarang)}` : null}>
+              <PilihKode required value={f.kodeBarang} onChange={(v) => set('kodeBarang', v)} />
             </Field>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Nilai perolehan (Rp)" hint={f.kodeBarang && f.nilai !== '' ? (isIntrakomptabel(f.kodeBarang, Number(f.nilai), ref) ? 'Intrakomptabel' : 'Di bawah batas kapitalisasi → Ekstrakomptabel') : null}>
