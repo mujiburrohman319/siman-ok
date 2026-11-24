@@ -1,7 +1,7 @@
 // Lapisan data Firestore. Semua penulisan aset + transaksi dilakukan atomik (runTransaction)
 // sehingga Daftar Barang dan Buku Barang selalu konsisten.
 import {
-  addDoc, collection, doc, getDocs, query, runTransaction, serverTimestamp, setDoc, updateDoc, where, writeBatch, arrayUnion,
+  addDoc, collection, deleteDoc, doc, getDocs, query, runTransaction, serverTimestamp, setDoc, updateDoc, where, writeBatch, arrayUnion,
 } from 'firebase/firestore'
 import { db } from './firebase.js'
 import { terapkanTransaksi, aksiPersetujuan, REFERENSI_DEFAULT, TransaksiError } from './bmn.js'
@@ -234,4 +234,21 @@ export async function isiPersediaanContoh(satkerId, uid) {
     const r = await buatBarangPersediaan(satkerId, { kode, nama, satuan })
     await catatMutasiPersediaan({ satkerId, barangId: r.id, uid, input: { jenis: 'saldo_awal', tanggal: `${tahun}-12-31`, qty, hargaSatuan: harga, dokumen, keterangan: 'Data contoh' } })
   }
+}
+
+// ---------------------------------------------------------------- Rekonsiliasi SIMAK vs SAKTI
+// satker/{s}/sakti: realisasi belanja (diisi dosen sebagai unit akuntansi); satker/{s}/rekonsiliasi/{periode}: penjelasan & BAR.
+export async function tambahSakti(satkerId, entri) {
+  return addDoc(col('satker', satkerId, 'sakti'), { ...entri, nilai: Number(entri.nilai) || 0, createdAt: serverTimestamp() })
+}
+export async function tambahSaktiBanyak(satkerId, list) {
+  const b = writeBatch(db)
+  for (const e of list) b.set(doc(col('satker', satkerId, 'sakti')), { ...e, nilai: Number(e.nilai) || 0, createdAt: serverTimestamp() })
+  await b.commit()
+}
+export async function hapusSakti(satkerId, id) {
+  await deleteDoc(doc(db, 'satker', satkerId, 'sakti', id))
+}
+export async function simpanRekonsiliasi(satkerId, periode, data) {
+  await setDoc(doc(db, 'satker', satkerId, 'rekonsiliasi', periode), { ...data, periode, updatedAt: serverTimestamp() }, { merge: true })
 }

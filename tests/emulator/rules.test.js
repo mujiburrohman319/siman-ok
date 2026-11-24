@@ -321,3 +321,18 @@ describe('usulan perubahan hasil penelaahan RKBMN', () => {
     await assertSucceeds(r(dosen()).update({ baris: [], revisi: 1, perubahan: { status: 'disetujui', baris: [], telaah: { catatan: 'ok' } } }))
   })
 })
+
+describe('rekonsiliasi SIMAK vs SAKTI', () => {
+  test('data SAKTI hanya ditulis dosen; dibaca anggota', async () => {
+    await assertFails(mhs1().collection('satker/s1/sakti').add({ nilai: 1 }))
+    await assertSucceeds(dosen().doc('satker/s1/sakti/k1').set({ nilai: 1, nomorSP2D: 'X' }))
+    await assertSucceeds(mhs1().doc('satker/s1/sakti/k1').get())
+    await assertFails(mhs2().doc('satker/s1/sakti/k1').get())
+  })
+  test('KPB menulis penjelasan sampai BAR final', async () => {
+    await assertSucceeds(mhs1().doc('satker/s1/rekonsiliasi/2026-S1').set({ penjelasan: { Tanah: 'ok' }, status: 'draft' }))
+    await assertSucceeds(mhs1().doc('satker/s1/rekonsiliasi/2026-S1').update({ status: 'final' }))
+    await assertFails(mhs1().doc('satker/s1/rekonsiliasi/2026-S1').update({ penjelasan: {} }))
+    await assertSucceeds(dosen().doc('satker/s1/rekonsiliasi/2026-S1').update({ status: 'draft' }))
+  })
+})

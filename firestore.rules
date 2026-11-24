@@ -149,6 +149,19 @@ service cloud.firestore {
         allow update, delete: if false;
       }
 
+      // Rekonsiliasi: data SAKTI berasal dari unit akuntansi (dosen); KPB menulis penjelasan selisih
+      // dan tidak dapat mengubahnya lagi setelah Berita Acara Rekonsiliasi final.
+      match /sakti/{id} {
+        allow read: if isStaff() || isMember(s);
+        allow write: if isStaff();
+      }
+      match /rekonsiliasi/{id} {
+        allow read: if isStaff() || isMember(s);
+        allow create: if isStaff() || isMember(s);
+        allow update: if isStaff() || (isMember(s) && resource.data.get('status', 'draft') != 'final');
+        allow delete: if isStaff();
+      }
+
       match /inventarisasi/{id} {
         allow read, write: if isStaff() || isMember(s);
       }
