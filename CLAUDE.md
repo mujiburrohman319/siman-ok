@@ -13,6 +13,8 @@ npm install
 cp .env.example .env.local   # isi kredensial Firebase
 npm run dev                  # http://localhost:5173
 npm test                     # uji logika domain (node:test, tanpa Firebase)
+npm run test:emulator        # uji firestore.rules + alur end-to-end db.js di Firebase Emulator (butuh Java)
+npm run emulators            # Auth + Firestore lokal; app memakainya bila VITE_USE_EMULATOR=true
 npm run build
 firebase deploy --only firestore:rules,firestore:indexes   # setelah `firebase use <project>`
 ```
@@ -46,7 +48,7 @@ kelas/{id}             nama, mk, tahunAkademik, semester, dosenUid
 referensi/config       batasKapitalisasi{peralatan,gedung}, batasPemeliharaan, sbsk[]
 satker/{id}            kode, nama, kelasId, anggota[uid], apipUids[uid]
   aset/{id}            kodeBarang, nup, namaBarang, merk, nilai, tglPerolehan, kondisi B|RR|RB,
-                       status aktif|rusak_berat|hilang|dihentikan|dihapus, statusPenggunaan,
+                       status aktif|rusak_berat|hilang|dihentikan|dihapus, statusPenggunaan, trxTerakhir,
                        pemanfaatan{}, intrakomptabel, bersejarah, lokasiRuang, kib{}
   transaksi/{id}       jenis, tanggal, asetId, efek[{akun,nilai}], dokumen{jenis,nomor}, dibuatOleh
   rkbmn/{tahun-jenis}  status draft→reviu_apip→diajukan→disetujui|dikembalikan, baris[], reviuApip, telaah, tandaTangan[]
@@ -62,6 +64,9 @@ dengan field `kelasId` agar aturan keamanan dan query lebih sederhana.
 
 1. Nilai, kondisi, dan status aset **hanya** berubah lewat `catatTransaksi()` → `terapkanTransaksi()`.
    Atribut lain (merk, lokasi, KIB, status penggunaan) lewat `ubahAtributAset()`.
+   Ditegakkan juga oleh `firestore.rules`: perubahan field nilai/kondisi/status wajib satu batch dengan transaksi
+   baru, dan `aset.trxTerakhir` menunjuk transaksi itu (transaksi pun harus berpasangan dengan asetnya).
+   Mengubah `firestore.rules` atau `db.js` → jalankan `npm run test:emulator`.
 2. `transaksi.efek` = pengaruh ke neraca intrakomptabel per akun. LBKP dihitung dari efek ini;
    uji `LBKP ... sama dengan saldo dari aset` menjaga konsistensinya. Jenis transaksi baru wajib menambah uji.
 3. Koreksi = transaksi baru. Jangan pernah menambah update/delete pada `transaksi`.
@@ -82,9 +87,10 @@ Selesai (R1 + sebagian R2):
 - M3 RKBMN pengadaan (uji SBSK + ketersediaan + BMN idle) dan pemeliharaan (uji objek PMK 150/2014), reviu APIP, penelaahan, tanda tangan simulasi.
 - M4–M6 usulan 13 jenis; persetujuan dosen membukukan transaksi/ubah status penggunaan; sewa mencatat PNBP.
 - Kelas, satker, anggota, peran APIP, data contoh 12 NUP.
+- Uji emulator: 45 uji aturan keamanan + 11 langkah alur end-to-end (dosen, KPB, APIP).
 
 Backlog (urutan disarankan):
-1. **Uji rules dengan Firebase Emulator** (`@firebase/rules-unit-testing`) — belum dijalankan; build dan uji domain sudah lulus, tetapi alur end-to-end belum dicoba terhadap Firebase sungguhan.
+1. ~~Uji rules dengan Firebase Emulator~~ — selesai: `tests/emulator/` (rules + alur end-to-end). Belum dicoba pada proyek Firebase sungguhan.
 2. Persediaan (aset lancar): Buku Persediaan per jenis, opname fisik, LBKP persediaan.
 3. Unggah dokumen sumber dan foto aset ke Cloud Storage (maks. 2 MB).
 4. Usulan Perubahan Hasil Penelaahan RKBMN (dalam tahun pelaksanaan anggaran).

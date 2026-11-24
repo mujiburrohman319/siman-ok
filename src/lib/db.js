@@ -26,9 +26,10 @@ export async function catatTransaksi({ satkerId, asetId, input, uid, ref = REFER
     }
     const hasil = terapkanTransaksi(aset, input, ref)
     const now = serverTimestamp()
-    if (asetId) tx.update(asetRef, { ...hasil.aset, updatedAt: now })
-    else tx.set(asetRef, { ...hasil.aset, createdAt: now, updatedAt: now })
+    // trxTerakhir memasangkan aset dengan transaksi ini; firestore.rules menolak perubahan nilai tanpa pasangan.
     const trxRef = doc(col('satker', satkerId, 'transaksi'))
+    if (asetId) tx.update(asetRef, { ...hasil.aset, trxTerakhir: trxRef.id, updatedAt: now })
+    else tx.set(asetRef, { ...hasil.aset, trxTerakhir: trxRef.id, createdAt: now, updatedAt: now })
     tx.set(trxRef, { ...hasil.transaksi, asetId: asetRef.id, dibuatOleh: uid, sumber, createdAt: now })
     return asetRef.id
   })
@@ -36,7 +37,7 @@ export async function catatTransaksi({ satkerId, asetId, input, uid, ref = REFER
 
 export async function ubahAtributAset(satkerId, asetId, patch) {
   // Atribut non-nilai (lokasi, merk, KIB, status penggunaan). Nilai/kondisi wajib lewat transaksi.
-  const terlarang = ['nilai', 'kondisi', 'status', 'intrakomptabel', 'kodeBarang', 'nup']
+  const terlarang = ['nilai', 'nilaiAwal', 'kondisi', 'status', 'intrakomptabel', 'bersejarah', 'kodeBarang', 'nup', 'trxTerakhir']
   for (const k of terlarang) if (k in patch) throw new Error(`Field ${k} hanya dapat diubah melalui transaksi`)
   await updateDoc(doc(db, 'satker', satkerId, 'aset', asetId), { ...patch, updatedAt: serverTimestamp() })
 }

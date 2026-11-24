@@ -12,6 +12,22 @@ service cloud.firestore {
     function satkerDoc(s) { return get(/databases/$(database)/documents/satker/$(s)).data; }
     function isMember(s) { return signedIn() && request.auth.uid in satkerDoc(s).anggota; }
     function isApip(s) { return signedIn() && request.auth.uid in satkerDoc(s).get('apipUids', []); }
+    function berubah() { return request.resource.data.diff(resource.data).affectedKeys(); }
+    function trxPath(s, t) { return /databases/$(database)/documents/satker/$(s)/transaksi/$(t); }
+    function asetPath(s, a) { return /databases/$(database)/documents/satker/$(s)/aset/$(a); }
+
+    // Field aset yang hanya boleh berubah lewat catatTransaksi() (CLAUDE.md aturan 1)
+    function FIELD_TRANSAKSI() {
+      return ['nilai', 'nilaiAwal', 'kondisi', 'status', 'intrakomptabel', 'bersejarah', 'kodeBarang', 'nup', 'trxTerakhir'];
+    }
+    // Penulisan aset dipasangkan dengan transaksi baru dalam batch yang sama:
+    // aset.trxTerakhir menunjuk transaksi yang belum ada sebelumnya dan merujuk aset ini.
+    function lewatTransaksi(s, asetId) {
+      let t = request.resource.data.get('trxTerakhir', null);
+      return t is string
+        && !exists(trxPath(s, t))
+        && getAfter(trxPath(s, t)).data.asetId == asetId;
+    }
 
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isStaff());
@@ -45,27 +61,38 @@ service cloud.firestore {
 
       match /aset/{id} {
         allow read: if isStaff() || isMember(s);
-        allow create, update: if isStaff() || isMember(s);
+        allow create: if (isStaff() || isMember(s)) && lewatTransaksi(s, id);
+        allow update: if (isStaff() || isMember(s))
+          && (!berubah().hasAny(FIELD_TRANSAKSI()) || lewatTransaksi(s, id));
         allow delete: if false; // aset tidak dihapus fisik; gunakan transaksi penghapusan
       }
 
       // Jejak audit: transaksi tidak boleh diubah/dihapus. Koreksi = transaksi baru.
       match /transaksi/{id} {
         allow read: if isStaff() || isMember(s);
-        allow create: if (isStaff() || isMember(s)) && request.resource.data.dibuatOleh == request.auth.uid;
+        // Setiap transaksi wajib dibukukan bersama perubahan asetnya (tidak ada transaksi lepas).
+        allow create: if (isStaff() || isMember(s))
+          && request.resource.data.dibuatOleh == request.auth.uid
+          && getAfter(asetPath(s, request.resource.data.asetId)).data.get('trxTerakhir', null) == id;
         allow update, delete: if false;
       }
 
       match /rkbmn/{id} {
+        // KPB hanya menyusun isi; CHR APIP, telaah, dan tanda tangan diisi pihak masing-masing.
+        function fieldPenyusun() { return ['tahun', 'jenis', 'baris', 'status', 'riwayat', 'updatedAt']; }
         allow read: if isStaff() || isMember(s);
-        allow create: if isStaff() || (isMember(s) && request.resource.data.status == 'draft');
+        allow create: if isStaff() || (isMember(s)
+          && request.resource.data.status == 'draft'
+          && request.resource.data.keys().hasOnly(fieldPenyusun()));
         allow update: if isStaff()
           || (isMember(s)
               && resource.data.status in ['draft', 'dikembalikan']
-              && request.resource.data.status in ['draft', 'reviu_apip'])
+              && request.resource.data.status in ['draft', 'reviu_apip']
+              && berubah().hasOnly(fieldPenyusun()))
           || (isApip(s)
               && resource.data.status == 'reviu_apip'
-              && request.resource.data.status in ['diajukan', 'draft']);
+              && request.resource.data.status in ['diajukan', 'draft']
+              && berubah().hasOnly(['status', 'reviuApip', 'riwayat', 'updatedAt']));
         allow delete: if isStaff() || (isMember(s) && resource.data.status == 'draft');
       }
 
