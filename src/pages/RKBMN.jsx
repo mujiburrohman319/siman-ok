@@ -3,12 +3,11 @@ import { Plus, Trash2 } from 'lucide-react'
 import { useAuth } from '../lib/auth.jsx'
 import { useSatker } from '../lib/satker.jsx'
 import { useDoc } from '../lib/hooks.js'
-import { rkbmnId, simpanPerubahanRKBMN, simpanRKBMN } from '../lib/db.js'
-import PilihKode from '../components/PilihKode.jsx'
-import { KONDISI, bandingkanBarisRKBMN, bolehUsulPerubahan, cekObjekPemeliharaan, rupiah, validasiBarisPengadaan } from '../lib/bmn.js'
+import { rkbmnId, simpanRKBMN } from '../lib/db.js'
+import { KODE_BARANG } from '../data/kodeBarang.js'
+import { KONDISI, cekObjekPemeliharaan, rupiah, validasiBarisPengadaan } from '../lib/bmn.js'
 import PerluSatker from '../components/PerluSatker.jsx'
 import { Alert, Badge, Button, Card, Field, Input, PageHeader, Select, Table, Td, Textarea } from '../components/ui.jsx'
-import { useToast } from '../components/umpan.jsx'
 import { StatusRKBMN } from './Dashboard.jsx'
 import { labelAset } from './Aset.jsx'
 
@@ -25,7 +24,7 @@ export default function RKBMN() {
         desc="RKBMN pengadaan dan pemeliharaan untuk satu tahun anggaran (PMK 150/2014). Disusun KPB, direviu APIP, lalu ditelaah Pengelola Barang."
         actions={
           <>
-            <Select value={tahun} onChange={(e) => setTahun(Number(e.target.value))} options={[tahunIni, tahunIni + 1, tahunIni + 2].map((t) => ({ value: t, label: `TA ${t}` }))} className="w-32" />
+            <Select value={tahun} onChange={(e) => setTahun(Number(e.target.value))} options={[tahunIni, tahunIni + 1, tahunIni + 2].map((t) => ({ value: t, label: `TA ${t}` }))} className="w-28" />
             <Select value={jenis} onChange={(e) => setJenis(e.target.value)} options={[{ value: 'pengadaan', label: 'Pengadaan' }, { value: 'pemeliharaan', label: 'Pemeliharaan' }]} className="w-40" />
           </>
         }
@@ -42,7 +41,6 @@ function Dokumen({ tahun, jenis }) {
   const { data: dok, loading } = useDoc(['satker', satkerId, 'rkbmn', id])
   const [baris, setBaris] = useState([])
   const [pesan, setPesan] = useState(null)
-  const toast = useToast()
   const [chr, setChr] = useState('')
 
   useEffect(() => { if (!loading) setBaris(dok?.baris || []) }, [loading, dok?.updatedAt?.seconds]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -63,7 +61,7 @@ function Dokumen({ tahun, jenis }) {
         ...(statusBaru !== status ? { riwayat: riwayat(statusBaru, extra.catatanRiwayat) } : {}),
         ...extra.patch,
       })
-      toast.sukses({ draft: 'Draf tersimpan.', reviu_apip: 'RKBMN dikirim untuk reviu APIP.', diajukan: 'RKBMN diteruskan ke Pengelola Barang.' }[statusBaru] || 'Tersimpan.')
+      setPesan({ tone: 'teal', teks: statusBaru === 'draft' ? 'Draf tersimpan.' : `Status: ${statusBaru.replace('_', ' ')}.` })
     } catch (e) {
       setPesan({ tone: 'rose', teks: e.message })
     }
@@ -104,8 +102,6 @@ function Dokumen({ tahun, jenis }) {
       )}
       {status === 'reviu_apip' && !isApip && !isStaff && <Alert tone="slate">Menunggu reviu oleh anggota yang ditunjuk sebagai APIP satker.</Alert>}
 
-      {status === 'disetujui' && <Perubahan dok={dok} />}
-
       {(dok?.reviuApip || dok?.riwayat?.length) && (
         <Card title="Jejak dokumen">
           {dok?.reviuApip && <p className="mb-2 text-sm"><span className="font-medium">CHR APIP ({dok.reviuApip.oleh}):</span> {dok.reviuApip.catatan}</p>}
@@ -115,7 +111,7 @@ function Dokumen({ tahun, jenis }) {
           {dok?.tandaTangan?.length > 0 && (
             <div className="mt-3 grid gap-3 sm:grid-cols-2">
               {dok.tandaTangan.map((t, i) => (
-                <div key={i} className="rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm">
+                <div key={i} className="rounded-lg border border-teal-200 bg-teal-50 p-3 text-sm">
                   <p className="text-xs text-slate-500">{t.peran}</p><p className="font-medium">{t.nama}</p><p className="text-xs text-slate-500">{new Date(t.tanggal).toLocaleDateString('id-ID')}</p>
                 </div>
               ))}
@@ -169,7 +165,7 @@ function TabelPengadaan({ baris, setBaris, edit }) {
                 <Select disabled={!edit} value={b.sbskId} onChange={(e) => ubah(i, 'sbskId', e.target.value)} placeholder="— SBSK —" options={sbskOpt} className="w-52" />
                 <Input disabled={!edit} type="number" min="0" placeholder="jumlah dasar (pegawai/pejabat)" value={b.dasarJumlah} onChange={(e) => ubah(i, 'dasarJumlah', e.target.value)} className="mt-1 w-52" />
               </Td>
-              <Td><PilihKode disabled={!edit} value={b.kodeBarang} onChange={(v) => ubah(i, 'kodeBarang', v)} className="w-56" /></Td>
+              <Td><Select disabled={!edit} value={b.kodeBarang} onChange={(e) => ubah(i, 'kodeBarang', e.target.value)} placeholder="— kode barang —" options={KODE_BARANG.map((k) => ({ value: k.kode, label: `${k.kode} ${k.uraian}` }))} className="w-52" /></Td>
               <Td right>{b.kebutuhanSBSK}</Td>
               <Td right>{b.tersedia}{b.idle ? <span className="block text-xs text-amber-700">idle {b.idle}</span> : null}</Td>
               <Td><Input disabled={!edit} type="number" min="0" value={b.usulan} onChange={(e) => ubah(i, 'usulan', e.target.value)} className="w-20 text-right" /></Td>
@@ -207,7 +203,7 @@ function TabelPemeliharaan({ baris, setBaris, edit }) {
         {boleh.map(({ a }) => {
           const b = dipilih(a.id)
           return (
-            <tr key={a.id} className={b ? 'bg-brand-50/50' : ''}>
+            <tr key={a.id} className={b ? 'bg-teal-50/50' : ''}>
               <Td><input type="checkbox" disabled={!edit} checked={!!b} onChange={() => toggle(a)} aria-label="Pilih aset" /></Td>
               <Td>{labelAset(a)}</Td>
               <Td>{KONDISI[a.kondisi]}</Td>
@@ -230,60 +226,6 @@ function TabelPemeliharaan({ baris, setBaris, edit }) {
       <Field label="" className="mt-3">
         <p className="text-sm text-slate-600">Total perkiraan biaya: <b>{rupiah(baris.reduce((s, b) => s + (Number(b.biaya) || 0), 0))}</b></p>
       </Field>
-    </Card>
-  )
-}
-
-/** Usulan Perubahan Hasil Penelaahan RKBMN (dalam tahun pelaksanaan anggaran). */
-function Perubahan({ dok }) {
-  const { isStaff, profil, ref } = useAuth()
-  const { satkerId } = useSatker()
-  const toast = useToast()
-  const p = dok.perubahan
-  const cek = bolehUsulPerubahan(dok, ref)
-  const [edit, setEdit] = useState(false)
-  const [baris, setBaris] = useState(p?.status === 'draft' ? p.baris : dok.baris || [])
-  const [alasan, setAlasan] = useState(p?.status === 'draft' ? p.alasan || '' : '')
-  const beda = bandingkanBarisRKBMN(dok.baris, baris, dok.jenis)
-
-  async function simpan(status) {
-    if (status === 'diajukan' && !alasan.trim()) return toast.galat('Tuliskan alasan perubahan.')
-    if (status === 'diajukan' && !beda.length) return toast.galat('Belum ada baris yang diubah.')
-    try {
-      await simpanPerubahanRKBMN(satkerId, dok.id, { status, alasan, baris: baris.map(({ keputusan: _k, ...b }) => b), oleh: profil.nama, tanggal: new Date().toISOString() })
-      toast.sukses(status === 'diajukan' ? 'Usulan perubahan diajukan ke Pengelola Barang.' : 'Draf usulan perubahan tersimpan.')
-      if (status === 'diajukan') setEdit(false)
-    } catch (e) {
-      toast.galat(e)
-    }
-  }
-
-  return (
-    <Card title="Usulan Perubahan Hasil Penelaahan" desc={dok.revisi ? `Berlaku: revisi ke-${dok.revisi}` : 'Belum pernah direvisi'}
-      actions={!isStaff && cek.boleh && !edit ? <Button variant="secondary" onClick={() => { setBaris(p?.status === 'draft' ? p.baris : dok.baris || []); setEdit(true) }}>{p?.status === 'draft' ? 'Lanjutkan draf' : 'Susun usulan perubahan'}</Button> : null}>
-      {p?.status === 'diajukan' && <Alert tone="slate">Usulan perubahan ({p.alasan}) sedang ditelaah Pengelola Barang.</Alert>}
-      {p?.status === 'ditolak' && !edit && <Alert tone="rose">Usulan perubahan terakhir ditolak: {p.telaah?.catatan}</Alert>}
-      {p?.status === 'disetujui' && !edit && <Alert tone="teal">Perubahan terakhir disetujui ({p.telaah?.oleh}): {p.telaah?.catatan || 'tanpa catatan'}</Alert>}
-      {!cek.boleh && p?.status !== 'diajukan' && <p className="text-sm text-slate-500">{cek.alasan.join('. ')}.</p>}
-      {edit && (
-        <div className="mt-2 space-y-4">
-          {dok.jenis === 'pengadaan' ? <TabelPengadaan baris={baris} setBaris={setBaris} edit /> : <TabelPemeliharaan baris={baris} setBaris={setBaris} edit />}
-          {beda.length > 0 && (
-            <ul className="space-y-1 rounded-lg bg-slate-50 p-3 text-sm">
-              {beda.map((d, i) => <li key={i}><Badge tone={{ tambah: 'teal', ubah: 'amber', hapus: 'rose' }[d.jenis]}>{d.jenis}</Badge> {d.teks}</li>)}
-            </ul>
-          )}
-          <Field label="Alasan perubahan"><Textarea value={alasan} onChange={(e) => setAlasan(e.target.value)} placeholder="mis. perubahan organisasi, kebijakan, atau kebutuhan mendesak" /></Field>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => simpan('draft')}>Simpan draf</Button>
-            <Button onClick={() => simpan('diajukan')}>Ajukan ke Pengelola Barang</Button>
-            <Button variant="ghost" onClick={() => setEdit(false)}>Batal</Button>
-          </div>
-        </div>
-      )}
-      {dok.riwayatRevisi?.length > 0 && (
-        <p className="mt-3 text-xs text-slate-500">Riwayat revisi: {dok.riwayatRevisi.map((x) => `ke-${x.ke} (${new Date(x.tanggal).toLocaleDateString('id-ID')})`).join(', ')}</p>
-      )}
     </Card>
   )
 }

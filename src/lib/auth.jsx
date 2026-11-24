@@ -2,8 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react'
 import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { auth, db } from './firebase.js'
-import { buatProfil, muatKodefikasi } from './db.js'
-import { setKodefikasi } from '../data/kodeBarang.js'
+import { buatProfil } from './db.js'
 import { REFERENSI_DEFAULT } from './bmn.js'
 
 const AuthCtx = createContext(null)
@@ -39,24 +38,12 @@ export function AuthProvider({ children }) {
     }, () => {})
   }, [user])
 
-  // Kodefikasi resmi hasil impor dosen (bila ada) dipasang sebagai daftar kode aktif
-  const [kodefikasi, setKodefikasiMeta] = useState(null)
-  useEffect(() => {
-    if (!user) return
-    return onSnapshot(doc(db, 'referensi', 'kodefikasi'), async (s) => {
-      const meta = s.exists() ? s.data() : null
-      setKodefikasi(meta ? await muatKodefikasi(meta) : null)
-      setKodefikasiMeta(meta)
-    }, () => {})
-  }, [user])
-
   const isStaff = ['pengelola', 'admin'].includes(profil?.role)
 
   const value = {
     user,
     profil,
     ref,
-    kodefikasi,
     isStaff,
     loading: user === undefined || (!!user && !profilSiap),
     masuk: (email, pass) => signInWithEmailAndPassword(auth, email, pass),

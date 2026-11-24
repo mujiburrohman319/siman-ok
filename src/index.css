@@ -2,54 +2,11 @@
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-
-  /* Warna merek: hijau-teal tua + aksen kuning */
-  --color-brand-50: #effaf8;
-  --color-brand-100: #d6f2ec;
-  --color-brand-200: #afe4d9;
-  --color-brand-300: #7dcfc0;
-  --color-brand-400: #4bb3a3;
-  --color-brand-500: #2c9889;
-  --color-brand-600: #1f7a6f;
-  --color-brand-700: #1b625a;
-  --color-brand-800: #194f49;
-  --color-brand-900: #17423d;
-  --color-brand-950: #0a2724;
-
-  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.04);
-  --shadow-pop: 0 24px 48px -12px rgb(15 23 42 / 0.25);
-
-  --animate-fade-in: fade-in 150ms ease-out;
-  --animate-pop-in: pop-in 180ms cubic-bezier(0.16, 1, 0.3, 1);
-
-  @keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-  @keyframes pop-in {
-    from { opacity: 0; transform: translateY(8px) scale(0.98); }
-    to { opacity: 1; transform: none; }
-  }
 }
 
-@layer base {
-  html { -webkit-tap-highlight-color: transparent; }
-  body { @apply bg-slate-100/60 text-slate-800 antialiased; font-feature-settings: "cv11", "ss01"; }
-  /* Isi grid boleh menyusut agar tabel lebar menggulir di dalam kartu, bukan melebarkan halaman */
-  .grid > * { min-width: 0; }
-  :focus-visible { outline: 2px solid var(--color-brand-500); outline-offset: 2px; }
-  input:focus-visible, select:focus-visible, textarea:focus-visible { outline: none; }
-  input[type='checkbox'], input[type='radio'] { accent-color: var(--color-brand-700); width: 1rem; height: 1rem; cursor: pointer; }
-  ::selection { background: var(--color-brand-200); }
-}
-
-@layer utilities {
-  .scrollbar-thin { scrollbar-width: thin; scrollbar-color: rgb(148 163 184 / 0.5) transparent; }
-}
+body { @apply bg-slate-50 text-slate-800 antialiased; }
 
 @media print {
   @page { size: A4 landscape; margin: 12mm; }
   body { background: white; }
-  section { box-shadow: none !important; }
 }

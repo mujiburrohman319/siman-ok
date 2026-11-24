@@ -1,28 +1,20 @@
-import { Suspense, lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { configOk } from './lib/firebase.js'
 import { AuthProvider, useAuth } from './lib/auth.jsx'
 import { SatkerProvider } from './lib/satker.jsx'
 import Layout from './components/Layout.jsx'
 import { Loading } from './components/ui.jsx'
-import { UmpanProvider } from './components/umpan.jsx'
 import Login from './pages/Login.jsx'
-
-// Tiap halaman dimuat saat dibuka agar unduhan awal kecil (jaringan seluler kampus).
-const Dashboard = lazy(() => import('./pages/Dashboard.jsx'))
-const Aset = lazy(() => import('./pages/Aset.jsx'))
-const Transaksi = lazy(() => import('./pages/Transaksi.jsx'))
-const Inventarisasi = lazy(() => import('./pages/Inventarisasi.jsx'))
-const Laporan = lazy(() => import('./pages/Laporan.jsx'))
-const RKBMN = lazy(() => import('./pages/RKBMN.jsx'))
-const Usulan = lazy(() => import('./pages/Usulan.jsx'))
-const Telaah = lazy(() => import('./pages/Telaah.jsx'))
-const Kelas = lazy(() => import('./pages/Kelas.jsx'))
-const Referensi = lazy(() => import('./pages/Referensi.jsx'))
-const Wasdal = lazy(() => import('./pages/Wasdal.jsx'))
-const Skenario = lazy(() => import('./pages/Skenario.jsx'))
-const Persediaan = lazy(() => import('./pages/Persediaan.jsx'))
-const Rekonsiliasi = lazy(() => import('./pages/Rekonsiliasi.jsx'))
+import Dashboard from './pages/Dashboard.jsx'
+import Aset from './pages/Aset.jsx'
+import Transaksi from './pages/Transaksi.jsx'
+import Inventarisasi from './pages/Inventarisasi.jsx'
+import Laporan from './pages/Laporan.jsx'
+import RKBMN from './pages/RKBMN.jsx'
+import Usulan from './pages/Usulan.jsx'
+import Telaah from './pages/Telaah.jsx'
+import Kelas from './pages/Kelas.jsx'
+import Referensi from './pages/Referensi.jsx'
 
 function Gate() {
   const { user, profil, isStaff, loading } = useAuth()
@@ -37,10 +29,6 @@ function Gate() {
           <Route path="transaksi" element={<Transaksi />} />
           <Route path="inventarisasi" element={<Inventarisasi />} />
           <Route path="laporan" element={<Laporan />} />
-          <Route path="wasdal" element={<Wasdal />} />
-          <Route path="skenario" element={<Skenario />} />
-          <Route path="persediaan" element={<Persediaan />} />
-          <Route path="rekonsiliasi" element={<Rekonsiliasi />} />
           <Route path="rkbmn" element={<RKBMN />} />
           <Route path="usulan" element={<Usulan />} />
           {isStaff && <Route path="telaah" element={<Telaah />} />}
@@ -63,10 +51,8 @@ export default function App() {
     )
   }
   return (
-    <UmpanProvider>
-      <AuthProvider>
-        <Gate />
-      </AuthProvider>
-    </UmpanProvider>
+    <AuthProvider>
+      <Gate />
+    </AuthProvider>
   )
 }

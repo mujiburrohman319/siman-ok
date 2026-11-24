@@ -6,7 +6,6 @@ import { useSatker } from '../lib/satker.jsx'
 import { useCollection } from '../lib/hooks.js'
 import { buatKelas, buatSatker, cariUserByEmail, isiDataContoh, tambahAnggota } from '../lib/db.js'
 import { Alert, Badge, Button, Card, Field, Input, PageHeader, Select, Table, Td } from '../components/ui.jsx'
-import { useKonfirmasi, useToast } from '../components/umpan.jsx'
 
 export default function Kelas() {
   const { user } = useAuth()
@@ -22,7 +21,7 @@ export default function Kelas() {
         <Card title="Kelas">
           <div className="space-y-2">
             {kelas.map((k) => (
-              <button key={k.id} onClick={() => setPilih(k.id)} className={`block w-full rounded-xl border px-3 py-2.5 transition text-left text-sm ${k.id === kelasId ? 'border-brand-500 bg-brand-50 ring-1 ring-brand-500' : 'border-slate-200 hover:bg-slate-50'}`}>
+              <button key={k.id} onClick={() => setPilih(k.id)} className={`block w-full rounded-lg border px-3 py-2 text-left text-sm ${k.id === kelasId ? 'border-teal-600 bg-teal-50' : 'border-slate-200 hover:bg-slate-50'}`}>
                 <span className="font-medium">{k.nama}</span>
                 <span className="block text-xs text-slate-500">{k.mk} · {k.semester} {k.tahunAkademik}</span>
               </button>
@@ -124,17 +123,13 @@ function BarisSatker({ s, anggota }) {
 function PromosiDosen() {
   const [email, setEmail] = useState('')
   const [pesan, setPesan] = useState('')
-  const toast = useToast()
-  const konfirmasi = useKonfirmasi()
   return (
     <form className="mt-5 space-y-2 border-t border-slate-100 pt-4" onSubmit={async (e) => {
       e.preventDefault()
-      setPesan('')
       const u = await cariUserByEmail(email)
       if (!u) return setPesan('Email belum terdaftar.')
-      if (!(await konfirmasi({ judul: `Jadikan ${u.nama} Pengelola Barang?`, pesan: 'Pengguna ini akan dapat melihat dan mengubah data semua satker, menelaah RKBMN, dan memutus usulan.', ya: 'Jadikan dosen' }))) return
       await updateDoc(doc(db, 'users', u.id), { role: 'pengelola' })
-      toast.sukses(`${u.nama} sekarang berperan sebagai Pengelola Barang (dosen).`)
+      setPesan(`${u.nama} sekarang berperan sebagai Pengelola Barang (dosen).`)
       setEmail('')
     }}>
       <p className="text-sm font-medium text-slate-700">Tambah dosen / asisten</p>

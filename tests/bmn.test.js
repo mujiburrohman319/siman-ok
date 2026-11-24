@@ -109,17 +109,3 @@ test('persetujuan usulan hibah menghasilkan transaksi hibah keluar', () => {
   assert.deepEqual(aksiPersetujuan({ jenis: 'hibah' }), { tipe: 'transaksi', jenis: 'hibah_keluar' })
   assert.equal(aksiPersetujuan({ jenis: 'sewa', durasiBulan: 12, nomorSK: 'S-1' }).patch.statusPenggunaan, 'dimanfaatkan')
 })
-
-test('usulan perubahan RKBMN: hanya hasil penelaahan yang ditetapkan, dalam tahun anggaran berjalan', async () => {
-  const { bolehUsulPerubahan, bandingkanBarisRKBMN } = await import('../src/lib/bmn.js')
-  const hari = new Date('2027-05-01')
-  assert.equal(bolehUsulPerubahan({ status: 'disetujui', tahun: 2027 }, undefined, hari).boleh, true)
-  assert.match(bolehUsulPerubahan({ status: 'diajukan', tahun: 2027 }, undefined, hari).alasan[0], /belum ditetapkan/)
-  assert.match(bolehUsulPerubahan({ status: 'disetujui', tahun: 2028 }, undefined, hari).alasan[0], /tahun pelaksanaan anggaran/)
-  assert.equal(bolehUsulPerubahan({ status: 'disetujui', tahun: 2028 }, { tahunAnggaran: 2028 }, hari).boleh, true)
-  assert.match(bolehUsulPerubahan({ status: 'disetujui', tahun: 2027, perubahan: { status: 'diajukan' } }, undefined, hari).alasan[0], /masih ditelaah/)
-
-  const lama = [{ id: 'a', uraian: 'Laptop', usulan: 2 }, { id: 'b', uraian: 'Meja', usulan: 5 }]
-  const baru = [{ id: 'a', uraian: 'Laptop', usulan: 3 }, { id: 'c', uraian: 'Printer', usulan: 1 }]
-  assert.deepEqual(bandingkanBarisRKBMN(lama, baru).map((d) => d.jenis), ['ubah', 'tambah', 'hapus'])
-})
