@@ -26,7 +26,8 @@ Deploy App Hosting: `apphosting.yaml` + `server.js` (tanpa dependensi). `vite.co
 ## Stack dan prinsip
 
 - React 18 + Vite 6 + Tailwind 4, react-router 6, lucide-react.
-- Firebase Auth (email/kata sandi) + Cloud Firestore named database `siman-simulasi`.
+- Firebase Auth (email/kata sandi + Google) + Cloud Firestore named database `siman-simulasi`.
+  Masuk Google: popup, beralih ke redirect bila diblokir; pengguna tanpa profil diarahkan ke "Lengkapi profil".
 - **100% online**: Firestore satu-satunya sumber data. Jangan menambah localStorage/mode offline untuk data.
 - Antarmuka dan istilah berbahasa Indonesia, mengikuti PP 27/2014 jo. PP 28/2020, PMK 150/2014, PMK 181/2016.
 - Label "Aplikasi Simulasi Pembelajaran" harus tetap tampil di setiap halaman.
@@ -105,8 +106,8 @@ dengan field `kelasId` agar aturan keamanan dan query lebih sederhana.
 ## Bootstrap dosen pertama (tanpa Firebase Console)
 
 Email di `DOSEN_AWAL` (`src/lib/akses.js`) — saat ini `mujiburrohman319@gmail.com` — otomatis berperan
-Pengelola Barang setelah **emailnya terverifikasi**: daftar di halaman masuk → klik tautan verifikasi →
-"Saya sudah verifikasi". Daftar yang sama ada di fungsi `dosenAwal()` di `firestore.rules`; keduanya wajib
+Pengelola Barang setelah **emailnya terverifikasi**: masuk dengan Google (email Google sudah terverifikasi,
+langsung aktif), atau daftar email/kata sandi → klik tautan verifikasi → "Saya sudah verifikasi". Daftar yang sama ada di fungsi `dosenAwal()` di `firestore.rules`; keduanya wajib
 sama (dijaga `tests/akses.test.js`) dan rules harus di-deploy agar berlaku. Verifikasi wajib karena
 pendaftaran email/kata sandi tidak membuktikan kepemilikan email.
 Dosen/asisten berikutnya, penurunan peran, dan penempatan satker diatur di menu **Pengguna** (`src/pages/Pengguna.jsx`).

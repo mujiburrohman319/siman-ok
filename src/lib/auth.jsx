@@ -1,9 +1,12 @@
 import { createContext, useContext, useEffect, useState } from 'react'
-import { onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendEmailVerification, signOut } from 'firebase/auth'
+import {
+  GoogleAuthProvider, createUserWithEmailAndPassword, getRedirectResult, onAuthStateChanged, sendEmailVerification,
+  signInWithEmailAndPassword, signInWithPopup, signInWithRedirect, signOut,
+} from 'firebase/auth'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { auth, db } from './firebase.js'
 import { buatProfil, muatKodefikasi, simpanSinkronProfil } from './db.js'
-import { isStaf, sinkronProfil } from './akses.js'
+import { isDosenAwal, isStaf, sinkronProfil } from './akses.js'
 import { setKodefikasi } from '../data/kodeBarang.js'
 import { REFERENSI_DEFAULT } from './bmn.js'
 
@@ -16,6 +19,9 @@ export function AuthProvider({ children }) {
   const [ref, setRef] = useState(REFERENSI_DEFAULT)
 
   useEffect(() => onAuthStateChanged(auth, (u) => setUser(u)), [])
+  // Hasil masuk Google lewat redirect (dipakai bila popup diblokir browser)
+  const [galatRedirect, setGalatRedirect] = useState(null)
+  useEffect(() => { getRedirectResult(auth).catch((e) => setGalatRedirect(e)) }, [])
 
   useEffect(() => {
     if (!user) { setProfil(null); setProfilSiap(!user && user !== undefined); return }
@@ -78,10 +84,26 @@ export function AuthProvider({ children }) {
     isStaff,
     loading: user === undefined || (!!user && !profilSiap),
     masuk: (email, pass) => signInWithEmailAndPassword(auth, email, pass),
+    /** Masuk dengan akun Google; bila popup diblokir (mis. di ponsel), beralih ke redirect. */
+    masukGoogle: async () => {
+      const p = new GoogleAuthProvider()
+      p.setCustomParameters({ prompt: 'select_account' })
+      try {
+        await signInWithPopup(auth, p)
+      } catch (e) {
+        if (['auth/popup-blocked', 'auth/operation-not-supported-in-this-environment'].includes(e.code)) await signInWithRedirect(auth, p)
+        else throw e
+      }
+    },
+    galatRedirect,
     daftar: async ({ email, pass, nama, nim }) => {
       // Jika sudah login tetapi profil belum ada (pendaftaran sebelumnya terputus), cukup buat profil.
+      // Akun Google sudah login (profil belum ada) → cukup buat profil; email Google sudah terverifikasi.
       const u = auth.currentUser || (await createUserWithEmailAndPassword(auth, email, pass)).user
-      await buatProfil(u.uid, { nama, nim, email: (u.email || email).trim().toLowerCase() })
+      const em = (u.email || email).trim().toLowerCase()
+      const dosen = u.emailVerified && isDosenAwal(em)
+      if (dosen) await u.getIdToken(true)
+      await buatProfil(u.uid, { nama, nim, email: em, role: dosen ? 'pengelola' : 'kpb', emailTerverifikasi: u.emailVerified })
       if (!u.emailVerified) await sendEmailVerification(u).catch(() => {})
     },
     emailTerverifikasi: !!user?.emailVerified,
