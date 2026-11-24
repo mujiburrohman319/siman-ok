@@ -1,0 +1,90 @@
+rules_version = '2';
+
+// SIMANTAP — aturan keamanan Firestore
+// Peran disimpan di users/{uid}.role : 'kpb' (mahasiswa) | 'pengelola' (dosen) | 'admin'
+// Mahasiswa hanya menulis satker tempat ia menjadi anggota; dosen membaca/menulis semua.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function me() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isStaff() { return signedIn() && me().role in ['pengelola', 'admin']; }
+    function satkerDoc(s) { return get(/databases/$(database)/documents/satker/$(s)).data; }
+    function isMember(s) { return signedIn() && request.auth.uid in satkerDoc(s).anggota; }
+    function isApip(s) { return signedIn() && request.auth.uid in satkerDoc(s).get('apipUids', []); }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isStaff());
+      // Pendaftaran mandiri selalu sebagai mahasiswa (kpb) tanpa satker
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.role == 'kpb'
+        && !('satkerId' in request.resource.data);
+      // Mahasiswa hanya boleh mengubah nama/NIM sendiri
+      allow update: if isStaff() || (request.auth.uid == uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nama', 'nim']));
+      allow delete: if isStaff();
+    }
+
+    match /kelas/{kelasId} {
+      allow read: if signedIn();
+      allow write: if isStaff();
+    }
+
+    match /referensi/{docId} {
+      allow read: if signedIn();
+      allow write: if isStaff();
+    }
+
+    // Antrean lintas satker untuk dosen (collection group query di menu Penelaahan)
+    match /{path=**}/rkbmn/{id} { allow read: if isStaff(); }
+    match /{path=**}/usulan/{id} { allow read: if isStaff(); }
+
+    match /satker/{s} {
+      allow read: if isStaff() || (signedIn() && request.auth.uid in resource.data.anggota);
+      allow write: if isStaff();
+
+      match /aset/{id} {
+        allow read: if isStaff() || isMember(s);
+        allow create, update: if isStaff() || isMember(s);
+        allow delete: if false; // aset tidak dihapus fisik; gunakan transaksi penghapusan
+      }
+
+      // Jejak audit: transaksi tidak boleh diubah/dihapus. Koreksi = transaksi baru.
+      match /transaksi/{id} {
+        allow read: if isStaff() || isMember(s);
+        allow create: if (isStaff() || isMember(s)) && request.resource.data.dibuatOleh == request.auth.uid;
+        allow update, delete: if false;
+      }
+
+      match /rkbmn/{id} {
+        allow read: if isStaff() || isMember(s);
+        allow create: if isStaff() || (isMember(s) && request.resource.data.status == 'draft');
+        allow update: if isStaff()
+          || (isMember(s)
+              && resource.data.status in ['draft', 'dikembalikan']
+              && request.resource.data.status in ['draft', 'reviu_apip'])
+          || (isApip(s)
+              && resource.data.status == 'reviu_apip'
+              && request.resource.data.status in ['diajukan', 'draft']);
+        allow delete: if isStaff() || (isMember(s) && resource.data.status == 'draft');
+      }
+
+      match /usulan/{id} {
+        allow read: if isStaff() || isMember(s);
+        allow create: if isStaff() || (isMember(s) && request.resource.data.status == 'diajukan');
+        allow update: if isStaff();
+        allow delete: if isStaff();
+      }
+
+      match /inventarisasi/{id} {
+        allow read, write: if isStaff() || isMember(s);
+      }
+
+      match /pnbp/{id} {
+        allow read: if isStaff() || isMember(s);
+        allow create: if isStaff() || isMember(s);
+        allow update, delete: if isStaff();
+      }
+    }
+  }
+}
