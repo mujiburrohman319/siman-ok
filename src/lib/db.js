@@ -156,3 +156,23 @@ export async function isiDataContoh(satkerId, uid, ref) {
     })
   }
 }
+
+// ---------------------------------------------------------------- Skenario kasus & penilaian
+// skenario/{id} dibaca mahasiswa kelasnya setelah terbit; kunci jawaban di skenario/{id}/kunci/jawaban (dosen saja).
+export async function simpanSkenario(id, data, kunci, uid) {
+  const ref = id ? doc(db, 'skenario', id) : doc(col('skenario'))
+  const b = writeBatch(db)
+  b.set(ref, { ...data, ...(id ? {} : { dosenUid: uid, createdAt: serverTimestamp() }), updatedAt: serverTimestamp() }, { merge: true })
+  b.set(doc(db, 'skenario', ref.id, 'kunci', 'jawaban'), { langkah: kunci, updatedAt: serverTimestamp() })
+  await b.commit()
+  return ref.id
+}
+
+/** Simpan nilai beberapa satker sekaligus. nilai: {satkerId: {...}} */
+export async function simpanNilai(skenarioId, nilai, uid) {
+  const b = writeBatch(db)
+  for (const [satkerId, v] of Object.entries(nilai)) {
+    b.set(doc(db, 'skenario', skenarioId, 'nilai', satkerId), { ...v, dinilaiOleh: uid, updatedAt: serverTimestamp() }, { merge: true })
+  }
+  await b.commit()
+}

@@ -2,7 +2,7 @@ import { Suspense, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import {
   LayoutDashboard, Boxes, ArrowLeftRight, FileBarChart, ClipboardList, Send, ScanSearch, Gavel, School, Settings2, LogOut, Menu, X,
-  FlaskConical, Building2, ChevronsUpDown, ShieldCheck,
+  FlaskConical, Building2, ChevronsUpDown, ShieldCheck, BookOpenCheck,
 } from 'lucide-react'
 import { useAuth } from '../lib/auth.jsx'
 import { useSatker } from '../lib/satker.jsx'
@@ -11,6 +11,7 @@ import { Loading } from './ui.jsx'
 
 const MENU = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/skenario', label: 'Skenario Kasus', icon: BookOpenCheck },
   { grup: 'Penatausahaan' },
   { to: '/aset', label: 'Daftar Aset & KIB', icon: Boxes },
   { to: '/transaksi', label: 'Transaksi BMN', icon: ArrowLeftRight },

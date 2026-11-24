@@ -20,6 +20,7 @@ const Telaah = lazy(() => import('./pages/Telaah.jsx'))
 const Kelas = lazy(() => import('./pages/Kelas.jsx'))
 const Referensi = lazy(() => import('./pages/Referensi.jsx'))
 const Wasdal = lazy(() => import('./pages/Wasdal.jsx'))
+const Skenario = lazy(() => import('./pages/Skenario.jsx'))
 
 function Gate() {
   const { user, profil, isStaff, loading } = useAuth()
@@ -35,6 +36,7 @@ function Gate() {
           <Route path="inventarisasi" element={<Inventarisasi />} />
           <Route path="laporan" element={<Laporan />} />
           <Route path="wasdal" element={<Wasdal />} />
+          <Route path="skenario" element={<Skenario />} />
           <Route path="rkbmn" element={<RKBMN />} />
           <Route path="usulan" element={<Usulan />} />
           {isStaff && <Route path="telaah" element={<Telaah />} />}

@@ -19,7 +19,8 @@ Object.assign(process.env, {
 const { app, auth, db } = await import('../../src/lib/firebase.js')
 const { deleteApp } = await import('firebase/app')
 const lib = await import('../../src/lib/db.js')
-const { REFERENSI_DEFAULT, hitungLBKP, saldoDariAset } = await import('../../src/lib/bmn.js')
+const { JENIS_TRANSAKSI, REFERENSI_DEFAULT, hitungLBKP, saldoDariAset } = await import('../../src/lib/bmn.js')
+const { templatSkenario, nilaiSkenario } = await import('../../src/lib/penilaian.js')
 const { createUserWithEmailAndPassword, signInWithEmailAndPassword } = await import('firebase/auth')
 const { collection, collectionGroup, doc, getDoc, getDocs, query, setLogLevel, where } = await import('firebase/firestore')
 setLogLevel('silent')
@@ -206,5 +207,60 @@ describe('alur SIMANTAP end-to-end', () => {
     const t = (await ambil('satker', s1.id, 'transaksi'))[0]
     await ditolak(updateDoc(doc(db, 'satker', s1.id, 'transaksi', t.id), { efek: [] }))
     await ditolak(deleteDoc(doc(db, 'satker', s1.id, 'transaksi', t.id)))
+  })
+})
+
+describe('skenario kasus: soal → jawaban mahasiswa → nilai otomatis → terbit', () => {
+  const T = templatSkenario(2026)
+  let skId
+
+  test('dosen menerbitkan skenario dari templat', async () => {
+    await masuk('dosen')
+    const { kunci, ...data } = T
+    skId = await lib.simpanSkenario(null, { ...data, kelasId: s1.kelasId, status: 'terbit' }, kunci, uid.dosen)
+    assert.ok(skId)
+  })
+
+  test('mahasiswa melihat soal, tidak dapat membaca kunci, lalu membukukan jawaban', async () => {
+    await masuk('mhs1')
+    const q = await getDocs(query(collection(db, 'skenario'), where('kelasId', '==', s1.kelasId), where('status', 'in', ['terbit', 'ditutup'])))
+    assert.deepEqual(q.docs.map((d) => d.id), [skId])
+    assert.equal(q.docs[0].data().kunci, undefined)
+    await ditolak(getDoc(doc(db, 'skenario', skId, 'kunci', 'jawaban')))
+
+    for (const l of T.langkah) {
+      const k = T.kunci[l.id]
+      const asetNow = await ambil('satker', s1.id, 'aset')
+      const input = { ...k, dokumen: { jenis: 'BAST', nomor: k.nomorDokumen } }
+      if (JENIS_TRANSAKSI[k.jenis].kelompok === 'tambah') {
+        input.nup = asetNow.filter((a) => a.kodeBarang === k.kodeBarang).length + 1
+        await lib.catatTransaksi({ satkerId: s1.id, asetId: null, uid: uid.mhs1, input })
+      } else {
+        const a = asetNow.find((x) => x.kodeBarang === k.target.kodeBarang && x.nup === k.target.nup)
+        await lib.catatTransaksi({ satkerId: s1.id, asetId: a.id, uid: uid.mhs1, input })
+      }
+    }
+  })
+
+  test('dosen menghitung nilai (semua langkah benar), menyimpan, dan menerbitkan', async () => {
+    await masuk('dosen')
+    const kunci = (await getDoc(doc(db, 'skenario', skId, 'kunci', 'jawaban'))).data().langkah
+    const trx = await ambil('satker', s1.id, 'transaksi')
+    const n = nilaiSkenario(T, kunci, trx, { manual: { r4: 75 }, skorWasdal: 80 })
+    assert.ok(n.langkah.every((l) => l.skor === 1), JSON.stringify(n.langkah.map((l) => l.kriteria.filter((k) => !k.ok))))
+    await lib.simpanNilai(skId, { [s1.id]: { ...n, manual: { r4: 75 }, terbit: false } }, uid.dosen)
+    await masuk('mhs1')
+    await ditolak(getDoc(doc(db, 'skenario', skId, 'nilai', s1.id))) // belum terbit
+    await masuk('dosen')
+    await lib.simpanNilai(skId, { [s1.id]: { terbit: true } }, uid.dosen)
+  })
+
+  test('mahasiswa membaca nilainya; satker lain tidak', async () => {
+    await masuk('mhs1')
+    const n = (await getDoc(doc(db, 'skenario', skId, 'nilai', s1.id))).data()
+    assert.equal(n.total, 35 + 35 + 12 + 11.25)
+    assert.equal(n.huruf, 'A')
+    await masuk('mhs2')
+    await ditolak(getDoc(doc(db, 'skenario', skId, 'nilai', s1.id)))
   })
 })

@@ -51,6 +51,21 @@ service cloud.firestore {
       allow write: if isStaff();
     }
 
+    // Skenario kasus: mahasiswa membaca skenario terbit di kelasnya; kunci jawaban hanya dosen;
+    // nilai dibaca anggota satker setelah diterbitkan dosen.
+    match /skenario/{id} {
+      allow read: if isStaff()
+        || (signedIn() && resource.data.status in ['terbit', 'ditutup'] && resource.data.kelasId == me().get('kelasId', ''));
+      allow write: if isStaff();
+      match /kunci/{doc} {
+        allow read, write: if isStaff();
+      }
+      match /nilai/{satkerId} {
+        allow read: if isStaff() || (isMember(satkerId) && resource.data.get('terbit', false) == true);
+        allow write: if isStaff();
+      }
+    }
+
     // Antrean lintas satker untuk dosen (collection group query di menu Penelaahan)
     match /{path=**}/rkbmn/{id} { allow read: if isStaff(); }
     match /{path=**}/usulan/{id} { allow read: if isStaff(); }

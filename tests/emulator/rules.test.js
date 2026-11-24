@@ -51,6 +51,12 @@ beforeEach(async () => {
     await db.doc('satker/s1/rkbmn/2027-pengadaan').set({ status: 'draft', baris: [] })
     await db.doc('satker/s1/usulan/u1').set({ jenis: 'penghapusan', status: 'diajukan', asetIds: ['a1'] })
     await db.doc('satker/s1/pnbp/p1').set({ nilai: 10 })
+    await db.doc('skenario/sk1').set({ kelasId: 'k1', status: 'terbit', judul: 'Kasus 1' })
+    await db.doc('skenario/sk2').set({ kelasId: 'k1', status: 'draft', judul: 'Kasus 2' })
+    await db.doc('skenario/sk3').set({ kelasId: 'k2', status: 'terbit', judul: 'Kelas lain' })
+    await db.doc('skenario/sk1/kunci/jawaban').set({ langkah: { l1: { jenis: 'pembelian' } } })
+    await db.doc('skenario/sk1/nilai/s1').set({ total: 90, terbit: true })
+    await db.doc('skenario/sk1/nilai/s2').set({ total: 60, terbit: false })
   })
 })
 
@@ -235,4 +241,31 @@ describe('celah yang ditutup: pembukuan & RKBMN tidak dapat dipalsukan', () => {
   })
   test('penyusun tetap dapat menyimpan draf dengan riwayat', () =>
     assertSucceeds(mhs1().doc('satker/s1/rkbmn/2027-pengadaan').set({ tahun: 2027, jenis: 'pengadaan', baris: [{ uraian: 'Laptop' }], status: 'reviu_apip', riwayat: [{ status: 'reviu_apip' }] }, { merge: true })))
+})
+
+describe('skenario kasus & nilai', () => {
+  test('mahasiswa membaca skenario terbit di kelasnya saja', async () => {
+    await assertSucceeds(mhs1().doc('skenario/sk1').get())
+    await assertFails(mhs1().doc('skenario/sk2').get()) // masih draf
+    await assertFails(mhs1().doc('skenario/sk3').get()) // kelas lain
+    await assertSucceeds(mhs1().collection('skenario').where('kelasId', '==', 'k1').where('status', 'in', ['terbit', 'ditutup']).get())
+    await assertFails(mhs1().collection('skenario').get())
+  })
+  test('kunci jawaban tidak dapat dibaca mahasiswa', async () => {
+    await assertFails(mhs1().doc('skenario/sk1/kunci/jawaban').get())
+    await assertFails(apip1().collection('skenario/sk1/kunci').get())
+    await assertSucceeds(dosen().doc('skenario/sk1/kunci/jawaban').get())
+  })
+  test('nilai dibaca anggota satker setelah diterbitkan', async () => {
+    await assertSucceeds(mhs1().doc('skenario/sk1/nilai/s1').get())
+    await assertFails(mhs2().doc('skenario/sk1/nilai/s2').get()) // belum terbit
+    await assertFails(mhs2().doc('skenario/sk1/nilai/s1').get()) // satker lain
+  })
+  test('hanya dosen menulis skenario, kunci, dan nilai', async () => {
+    await assertFails(mhs1().doc('skenario/sk1').update({ status: 'ditutup' }))
+    await assertFails(mhs1().doc('skenario/sk1/nilai/s1').update({ total: 100 }))
+    await assertFails(mhs1().collection('skenario').add({ kelasId: 'k1', status: 'terbit' }))
+    await assertSucceeds(dosen().doc('skenario/sk1/nilai/s2').set({ terbit: true }, { merge: true }))
+    await assertSucceeds(dosen().doc('skenario/sk1/kunci/jawaban').set({ langkah: {} }))
+  })
 })
