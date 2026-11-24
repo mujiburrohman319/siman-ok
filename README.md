@@ -10,7 +10,7 @@ Kuasa Pengguna Barang pada satker simulasi; dosen berperan sebagai Pengelola Bar
 
 1. Buat project di [Firebase Console](https://console.firebase.google.com), aktifkan
    **Authentication → Email/Password** dan **Google**, lalu tambahkan domain aplikasi di
-   **Authentication → Settings → Authorized domains**, serta **Firestore** (named database `siman-simulasi`, region `asia-southeast2`/`asia-southeast1`).
+   **Authentication → Settings → Authorized domains**, serta **Firestore** (named database `siman`, region `asia-southeast2`/`asia-southeast1`).
 2. `cp .env.example .env.local` lalu isi kredensial web app.
 3. `npm install && npm run dev`
 4. Terapkan aturan keamanan dan indeks: `firebase use <project-id>` lalu
@@ -36,7 +36,7 @@ Deploy:
 
 1. `npm run emulators` (Auth + Firestore lokal; antarmuka emulator di http://127.0.0.1:4000).
 2. Isi `.env.local` dengan `VITE_FIREBASE_API_KEY=demo`, `VITE_FIREBASE_PROJECT_ID=demo-simantap`,
-   `VITE_FIRESTORE_DB=siman-simulasi`, `VITE_USE_EMULATOR=true`, lalu `npm run dev` di terminal lain.
+   `VITE_FIRESTORE_DB=siman`, `VITE_USE_EMULATOR=true`, lalu `npm run dev` di terminal lain.
 3. Daftar akun, lalu ubah `role` menjadi `pengelola` lewat antarmuka emulator (tab Firestore).
    Data emulator hilang saat emulator dimatikan.
 
