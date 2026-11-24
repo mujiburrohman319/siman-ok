@@ -41,6 +41,7 @@ service cloud.firestore {
       // Pendaftaran mandiri sebagai mahasiswa (kpb) tanpa satker; dosen awal terverifikasi boleh langsung pengelola
       allow create: if signedIn() && request.auth.uid == uid
         && !('satkerId' in request.resource.data)
+        && request.resource.data.get('emailTerverifikasi', false) in [false, request.auth.token.get('email_verified', false)]
         && (request.resource.data.role == 'kpb' || (request.resource.data.role == 'pengelola' && dosenAwal()));
       // Dosen mengubah siapa pun, tetapi tidak dapat menurunkan peran dirinya sendiri.
       // Pengguna lain hanya mengubah nama/NIM dan menandai email terverifikasi sesuai token.

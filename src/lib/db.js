@@ -46,8 +46,9 @@ export async function ubahAtributAset(satkerId, asetId, patch) {
 }
 
 // ---------------------------------------------------------------- akun & kelas
-export async function buatProfil(uid, { nama, nim, email }) {
-  await setDoc(doc(db, 'users', uid), { nama, nim: nim || '', email, role: 'kpb', createdAt: serverTimestamp() })
+/** role: 'kpb', atau 'pengelola' hanya untuk dosen awal yang emailnya terverifikasi (ditegakkan rules). */
+export async function buatProfil(uid, { nama, nim, email, role = 'kpb', emailTerverifikasi = false }) {
+  await setDoc(doc(db, 'users', uid), { nama, nim: nim || '', email, role, ...(emailTerverifikasi ? { emailTerverifikasi: true } : {}), createdAt: serverTimestamp() })
 }
 
 /** Simpan hasil sinkronProfil() (src/lib/akses.js) untuk pengguna yang sedang masuk. */

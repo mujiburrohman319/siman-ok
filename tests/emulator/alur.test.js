@@ -400,3 +400,20 @@ describe('dosen awal tanpa Firebase Console', () => {
     await ditolak(lib.ubahPeran(u.uid, 'kpb')) // tidak dapat menurunkan diri sendiri
   })
 })
+
+describe('masuk dengan Google (Auth Emulator)', () => {
+  test('akun Google mahasiswa → profil kpb; akses satker lain ditolak', async () => {
+    const { GoogleAuthProvider, signInWithCredential, signOut } = await import('firebase/auth')
+    await signOut(auth)
+    const kred = GoogleAuthProvider.credential(JSON.stringify({ sub: 'google-mhs-1', email: 'mahasiswa.google@gmail.com', email_verified: true, name: 'Mahasiswa Google' }))
+    const u = (await signInWithCredential(auth, kred)).user
+    assert.equal(u.emailVerified, true)
+    assert.equal(u.providerData[0].providerId, 'google.com')
+    await lib.buatProfil(u.uid, { nama: u.displayName, nim: '320', email: u.email, role: 'kpb', emailTerverifikasi: true })
+    const p = (await getDoc(doc(db, 'users', u.uid))).data()
+    assert.equal(p.role, 'kpb')
+    assert.equal(p.nama, 'Mahasiswa Google')
+    await ditolak(getDoc(doc(db, 'satker', s1.id)))
+    await ditolak(lib.buatProfil(u.uid, { nama: 'x', email: u.email, role: 'pengelola' }))
+  })
+})

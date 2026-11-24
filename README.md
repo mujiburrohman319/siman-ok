@@ -9,7 +9,8 @@ Kuasa Pengguna Barang pada satker simulasi; dosen berperan sebagai Pengelola Bar
 ## Menjalankan
 
 1. Buat project di [Firebase Console](https://console.firebase.google.com), aktifkan
-   **Authentication → Email/Password** dan **Firestore** (named database `siman-simulasi`, region `asia-southeast2`/`asia-southeast1`).
+   **Authentication → Email/Password** dan **Google**, lalu tambahkan domain aplikasi di
+   **Authentication → Settings → Authorized domains**, serta **Firestore** (named database `siman-simulasi`, region `asia-southeast2`/`asia-southeast1`).
 2. `cp .env.example .env.local` lalu isi kredensial web app.
 3. `npm install && npm run dev`
 4. Terapkan aturan keamanan dan indeks: `firebase use <project-id>` lalu

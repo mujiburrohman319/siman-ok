@@ -405,3 +405,15 @@ describe('dosen awal & panel Pengguna', () => {
     await assertSucceeds(pindah(dosen()))
   })
 })
+
+describe('masuk dengan Google', () => {
+  const g = (uid, email, verified = true) => env.authenticatedContext(uid, { email, email_verified: verified, firebase: { sign_in_provider: 'google.com' } }).firestore()
+  test('akun Google biasa membuat profil mahasiswa dengan tanda email terverifikasi', async () => {
+    await assertSucceeds(g('g1', 'mhs@gmail.com').doc('users/g1').set({ nama: 'G', email: 'mhs@gmail.com', role: 'kpb', emailTerverifikasi: true }))
+    await assertFails(g('g2', 'mhs2@gmail.com').doc('users/g2').set({ nama: 'G', email: 'mhs2@gmail.com', role: 'pengelola' }))
+  })
+  test('profil baru tidak dapat mengklaim email terverifikasi tanpa token terverifikasi', () =>
+    assertFails(g('g3', 'x@contoh.id', false).doc('users/g3').set({ nama: 'X', email: 'x@contoh.id', role: 'kpb', emailTerverifikasi: true })))
+  test('dosen awal lewat Google langsung pengelola', () =>
+    assertSucceeds(g('g4', 'mujiburrohman319@gmail.com').doc('users/g4').set({ nama: 'Dosen', email: 'mujiburrohman319@gmail.com', role: 'pengelola', emailTerverifikasi: true })))
+})
