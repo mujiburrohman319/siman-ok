@@ -7,9 +7,10 @@ import { KODE_BARANG, cariKode } from '../data/kodeBarang.js'
 import { KIB } from '../data/kib.js'
 import { DOKUMEN_SUMBER, JENIS_TRANSAKSI, KONDISI, isIntrakomptabel, nupBerikutnya, rupiah, tanggalID } from '../lib/bmn.js'
 import PerluSatker from '../components/PerluSatker.jsx'
-import { Search } from 'lucide-react'
-import { Alert, Badge, Button, Card, Field, Input, PageHeader, Paging, Select, Table, Td, TombolEkspor, inputCls, usePaging } from '../components/ui.jsx'
+import { Paperclip, Search } from 'lucide-react'
+import { Alert, Badge, Button, Card, Field, Input, Modal, PageHeader, Paging, Select, Table, Td, TombolEkspor, inputCls, usePaging } from '../components/ui.jsx'
 import { useKonfirmasi, useToast } from '../components/umpan.jsx'
+import Lampiran from '../components/Lampiran.jsx'
 import { labelAset } from './Aset.jsx'
 
 const hariIni = () => new Date().toISOString().slice(0, 10)
@@ -191,6 +192,7 @@ function BukuBarang() {
       .filter((t) => !q || `${t.kodeBarang} ${t.namaBarang} ${t.namaJenis} ${t.dokumen?.jenis} ${t.dokumen?.nomor} ${t.keterangan || ''} ${t.tanggal}`.toLowerCase().includes(q))
   }, [transaksi, filter, cari])
   const paging = usePaging(list, 20)
+  const [lampiran, setLampiran] = useState(null)
   const tone = { tambah: 'teal', ubah: 'blue', kurang: 'rose' }
   const efekTotal = (t) => (t.efek || []).reduce((s, e) => s + e.nilai, 0)
   const ekspor = () => ({
@@ -212,7 +214,7 @@ function BukuBarang() {
         </label>
         <Select value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Semua kelompok" options={[{ value: 'tambah', label: 'Perolehan' }, { value: 'ubah', label: 'Perubahan' }, { value: 'kurang', label: 'Penghapusan' }]} className="w-full sm:w-44" />
       </div>
-      <Table head={['Tanggal', 'Transaksi', 'Barang', 'Dokumen', { label: 'Efek neraca', right: true }]} empty={list.length ? null : transaksi.length ? 'Tidak ada transaksi yang cocok.' : 'Belum ada transaksi.'}>
+      <Table head={['Tanggal', 'Transaksi', 'Barang', 'Dokumen', { label: 'Efek neraca', right: true }, '']} empty={list.length ? null : transaksi.length ? 'Tidak ada transaksi yang cocok.' : 'Belum ada transaksi.'}>
         {paging.isi.map((t) => {
           const efek = efekTotal(t)
           return (
@@ -222,11 +224,15 @@ function BukuBarang() {
               <Td><span className="font-mono text-xs">{t.kodeBarang}</span> NUP {t.nup}<span className="block text-xs text-slate-500">{t.namaBarang}</span></Td>
               <Td className="text-xs">{t.dokumen?.jenis}<span className="block text-slate-500">{t.dokumen?.nomor}</span></Td>
               <Td right className={efek < 0 ? 'text-rose-700' : ''}>{(t.efek || []).length > 1 ? 'reklasifikasi' : rupiah(efek)}</Td>
+              <Td><Button size="sm" variant="ghost" onClick={() => setLampiran(t)} aria-label="Dokumen sumber" title="Dokumen sumber"><Paperclip size={15} /></Button></Td>
             </tr>
           )
         })}
       </Table>
       <Paging {...paging} />
+      <Modal open={!!lampiran} onClose={() => setLampiran(null)} title={lampiran ? `${lampiran.namaJenis} · ${lampiran.kodeBarang} NUP ${lampiran.nup} · ${lampiran.dokumen?.jenis} ${lampiran.dokumen?.nomor}` : ''}>
+        {lampiran && <Lampiran induk={{ tipe: 'transaksi', id: lampiran.id }} />}
+      </Modal>
     </Card>
   )
 }

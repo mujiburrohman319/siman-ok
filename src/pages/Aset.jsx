@@ -8,6 +8,7 @@ import { KONDISI, STATUS_ASET, STATUS_PENGGUNAAN, akunAset, hitungPenyusutan, ru
 import PerluSatker from '../components/PerluSatker.jsx'
 import { Alert, Badge, Button, Card, Field, Input, Modal, PageHeader, Paging, Select, Table, Td, TombolEkspor, usePaging } from '../components/ui.jsx'
 import { useToast } from '../components/umpan.jsx'
+import Lampiran from '../components/Lampiran.jsx'
 
 export const toneKondisi = { B: 'teal', RR: 'amber', RB: 'rose' }
 export const toneStatus = { aktif: 'teal', rusak_berat: 'rose', hilang: 'rose', dihentikan: 'amber', dihapus: 'slate' }
@@ -154,6 +155,8 @@ function DetailAset({ aset }) {
       {aset.kondisi === 'RB' && aset.status === 'aktif' && (
         <Alert>Aset rusak berat masih tercatat aktif di neraca. Ajukan usulan penghapusan/pemindahtanganan, lalu reklasifikasi ke Daftar Barang Rusak Berat.</Alert>
       )}
+
+      <Lampiran induk={{ tipe: 'aset', id: aset.id }} bolehUnggah={bisaEdit} />
 
       <div>
         <h4 className="mb-2 text-sm font-semibold text-slate-700">Riwayat transaksi</h4>

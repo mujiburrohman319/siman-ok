@@ -336,3 +336,38 @@ describe('rekonsiliasi SIMAK vs SAKTI', () => {
     await assertSucceeds(dosen().doc('satker/s1/rekonsiliasi/2026-S1').update({ status: 'draft' }))
   })
 })
+
+describe('lampiran', () => {
+  const meta = (o = {}) => ({ induk: { tipe: 'aset', id: 'a1' }, nama: 'foto.jpg', tipe: 'image/jpeg', ukuran: 1000, jumlahPotong: 1, dibuatOleh: 'mhs1', ...o })
+  function unggah(db, m = meta(), data = 'QUJD') {
+    const ref = db.collection('satker/s1/lampiran').doc()
+    const b = db.batch()
+    b.set(ref, m)
+    b.set(ref.collection('potong').doc('0'), { data })
+    return b.commit().then(() => ref.id)
+  }
+  test('anggota mengunggah gambar/PDF ≤ 2 MB', async () => {
+    await assertSucceeds(unggah(mhs1()))
+    await assertSucceeds(unggah(mhs1(), meta({ tipe: 'application/pdf', induk: { tipe: 'transaksi', id: 't1' } })))
+  })
+  test('ditolak: format lain, > 2 MB, potongan terlalu besar, atas nama orang lain, satker lain', async () => {
+    await assertFails(unggah(mhs1(), meta({ tipe: 'application/zip' })))
+    await assertFails(unggah(mhs1(), meta({ ukuran: 3_000_000 })))
+    await assertFails(unggah(mhs1(), meta(), 'x'.repeat(950_001)))
+    await assertFails(unggah(mhs1(), meta({ dibuatOleh: 'apip1' })))
+    await assertFails(unggah(mhs2(), meta({ dibuatOleh: 'mhs2' })))
+  })
+  test('lampiran transaksi tidak dapat dihapus; foto aset dapat dihapus pengunggahnya', async () => {
+    const t = await unggah(mhs1(), meta({ induk: { tipe: 'transaksi', id: 't1' } }))
+    await assertFails(mhs1().doc(`satker/s1/lampiran/${t}`).delete())
+    const a = await unggah(mhs1())
+    await assertFails(apip1().doc(`satker/s1/lampiran/${a}`).delete())
+    await assertSucceeds(mhs1().doc(`satker/s1/lampiran/${a}/potong/0`).delete())
+    await assertSucceeds(mhs1().doc(`satker/s1/lampiran/${a}`).delete())
+  })
+  test('satker lain tidak dapat membaca lampiran', async () => {
+    const a = await unggah(mhs1())
+    await assertFails(mhs2().doc(`satker/s1/lampiran/${a}/potong/0`).get())
+    await assertSucceeds(apip1().doc(`satker/s1/lampiran/${a}/potong/0`).get())
+  })
+})

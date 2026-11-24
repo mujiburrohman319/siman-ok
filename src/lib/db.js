@@ -6,6 +6,7 @@ import {
 import { db } from './firebase.js'
 import { terapkanTransaksi, aksiPersetujuan, REFERENSI_DEFAULT, TransaksiError } from './bmn.js'
 import { PersediaanError, terapkanMutasi } from './persediaan.js'
+import { potong } from './lampiran.js'
 
 const col = (...p) => collection(db, ...p)
 
@@ -251,4 +252,27 @@ export async function hapusSakti(satkerId, id) {
 }
 export async function simpanRekonsiliasi(satkerId, periode, data) {
   await setDoc(doc(db, 'satker', satkerId, 'rekonsiliasi', periode), { ...data, periode, updatedAt: serverTimestamp() }, { merge: true })
+}
+
+// ---------------------------------------------------------------- Lampiran (lihat src/lib/lampiran.js)
+export async function unggahLampiran({ satkerId, induk, nama, tipe, ukuran, base64, uid }) {
+  const bagian = potong(base64)
+  const ref = doc(col('satker', satkerId, 'lampiran'))
+  const b = writeBatch(db)
+  b.set(ref, { induk, nama, tipe, ukuran, jumlahPotong: bagian.length, dibuatOleh: uid, createdAt: serverTimestamp() })
+  bagian.forEach((data, i) => b.set(doc(db, 'satker', satkerId, 'lampiran', ref.id, 'potong', String(i)), { data }))
+  await b.commit()
+  return ref.id
+}
+
+export async function ambilLampiran(satkerId, l) {
+  const s = await getDocs(collection(db, 'satker', satkerId, 'lampiran', l.id, 'potong'))
+  return s.docs.sort((a, b) => Number(a.id) - Number(b.id)).map((d) => d.data().data).join('')
+}
+
+export async function hapusLampiran(satkerId, l) {
+  const b = writeBatch(db)
+  for (let i = 0; i < l.jumlahPotong; i++) b.delete(doc(db, 'satker', satkerId, 'lampiran', l.id, 'potong', String(i)))
+  b.delete(doc(db, 'satker', satkerId, 'lampiran', l.id))
+  await b.commit()
 }

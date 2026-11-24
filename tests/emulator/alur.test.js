@@ -313,3 +313,23 @@ describe('usulan perubahan hasil penelaahan RKBMN', () => {
     assert.equal(akhir.perubahan.status, 'disetujui')
   })
 })
+
+describe('lampiran dokumen sumber', () => {
+  test('unggah PDF 2 MB (3 potongan), unduh utuh, hapus foto aset', async () => {
+    await masuk('mhs1')
+    const asli = Buffer.alloc(2 * 1024 * 1024, 3).toString('base64')
+    const trx = (await ambil('satker', s1.id, 'transaksi'))[0]
+    const id = await lib.unggahLampiran({ satkerId: s1.id, induk: { tipe: 'transaksi', id: trx.id }, nama: 'bast.pdf', tipe: 'application/pdf', ukuran: 2 * 1024 * 1024, base64: asli, uid: uid.mhs1 })
+    const list = await getDocs(query(collection(db, 'satker', s1.id, 'lampiran'), where('induk.id', '==', trx.id)))
+    assert.equal(list.size, 1)
+    const l = { id, ...list.docs[0].data() }
+    assert.equal(l.jumlahPotong, 3)
+    assert.equal(await lib.ambilLampiran(s1.id, l), asli)
+    await ditolak(lib.hapusLampiran(s1.id, l)) // lampiran transaksi = jejak audit
+
+    const foto = await lib.unggahLampiran({ satkerId: s1.id, induk: { tipe: 'aset', id: aset[0].id }, nama: 'foto.jpg', tipe: 'image/jpeg', ukuran: 10, base64: 'QUJD', uid: uid.mhs1 })
+    await lib.hapusLampiran(s1.id, { id: foto, jumlahPotong: 1 })
+    await masuk('mhs2')
+    await ditolak(lib.ambilLampiran(s1.id, l))
+  })
+})

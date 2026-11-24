@@ -162,6 +162,31 @@ service cloud.firestore {
         allow delete: if isStaff();
       }
 
+      // Lampiran: maks. 2 MB (≤ 3 potongan base64), format gambar/PDF. Lampiran transaksi tidak dapat dihapus
+      // (bagian jejak audit); foto/dokumen aset dapat dihapus pengunggahnya atau dosen.
+      match /lampiran/{id} {
+        function bolehHapus(d) { return isStaff() || (d.dibuatOleh == request.auth.uid && d.induk.tipe == 'aset'); }
+        allow read: if isStaff() || isMember(s);
+        allow create: if (isStaff() || isMember(s))
+          && request.resource.data.dibuatOleh == request.auth.uid
+          && request.resource.data.induk.tipe in ['aset', 'transaksi']
+          && request.resource.data.tipe in ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
+          && request.resource.data.ukuran <= 2097152
+          && request.resource.data.jumlahPotong >= 1 && request.resource.data.jumlahPotong <= 3;
+        allow update: if false;
+        allow delete: if bolehHapus(resource.data);
+        match /potong/{i} {
+          allow read: if isStaff() || isMember(s);
+          allow create: if (isStaff() || isMember(s))
+            && request.resource.data.data is string && request.resource.data.data.size() <= 950000
+            && int(i) < getAfter(/databases/$(database)/documents/satker/$(s)/lampiran/$(id)).data.jumlahPotong
+            && getAfter(/databases/$(database)/documents/satker/$(s)/lampiran/$(id)).data.dibuatOleh == request.auth.uid
+            && !exists(/databases/$(database)/documents/satker/$(s)/lampiran/$(id)/potong/$(i));
+          allow update: if false;
+          allow delete: if bolehHapus(get(/databases/$(database)/documents/satker/$(s)/lampiran/$(id)).data);
+        }
+      }
+
       match /inventarisasi/{id} {
         allow read, write: if isStaff() || isMember(s);
       }
