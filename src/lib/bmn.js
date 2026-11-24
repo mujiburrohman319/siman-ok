@@ -7,6 +7,7 @@ import { GOLONGAN, cariKode, golonganDari } from '../data/kodeBarang.js'
 export const REFERENSI_DEFAULT = {
   batasKapitalisasi: { peralatan: 1_000_000, gedung: 25_000_000 },
   batasPemeliharaan: 100_000_000, // PMK 150/2014: BMN lain dengan nilai perolehan per unit >= Rp100 juta
+  tahunAnggaran: null, // tahun pelaksanaan anggaran untuk simulasi; null = tahun berjalan
   // SBSK: ANGKA CONTOH untuk latihan, bukan angka regulasi. Dosen menyesuaikan di menu Referensi.
   sbsk: [
     { id: 'aadb-jabatan', jenis: 'Kendaraan dinas jabatan', satuan: 'unit', dasar: 'per pejabat eselon II', standar: 1 },
@@ -364,6 +365,40 @@ export function validasiBarisPengadaan(baris) {
   return { maksimal, catatan, sesuai: usulan <= maksimal && idle === 0 }
 }
 
+// ---------------------------------------------------------------- perubahan hasil penelaahan RKBMN
+export const tahunAnggaranAktif = (ref = REFERENSI_DEFAULT, hariIni = new Date()) => Number(ref.tahunAnggaran) || hariIni.getFullYear()
+
+/**
+ * Usulan Perubahan Hasil Penelaahan RKBMN hanya atas RKBMN yang telah ditetapkan,
+ * diajukan dalam tahun pelaksanaan anggarannya, dan tidak sedang menunggu keputusan.
+ */
+export function bolehUsulPerubahan(dok, ref = REFERENSI_DEFAULT, hariIni = new Date()) {
+  const alasan = []
+  if (dok?.status !== 'disetujui') alasan.push('Hasil Penelaahan RKBMN belum ditetapkan')
+  const ta = tahunAnggaranAktif(ref, hariIni)
+  if (dok && Number(dok.tahun) !== ta) alasan.push(`Perubahan hanya dalam tahun pelaksanaan anggaran: RKBMN TA ${dok.tahun}, tahun anggaran berjalan ${ta}`)
+  if (dok?.perubahan?.status === 'diajukan') alasan.push('Usulan perubahan sebelumnya masih ditelaah Pengelola Barang')
+  return { boleh: alasan.length === 0, alasan }
+}
+
+const kunciBaris = (b) => b.id || b.asetId
+const ringkasBaris = (b, jenis) => (jenis === 'pengadaan' ? `${b.uraian || '—'}: ${Number(b.usulan) || 0} ${b.satuan || 'unit'}` : `${b.label || b.uraian || '—'}: ${rupiah(b.biaya)}`)
+
+/** Ringkasan perbedaan baris RKBMN lama vs usulan perubahan. */
+export function bandingkanBarisRKBMN(lama = [], baru = [], jenis = 'pengadaan') {
+  const mLama = new Map(lama.map((b) => [kunciBaris(b), b]))
+  const mBaru = new Map(baru.map((b) => [kunciBaris(b), b]))
+  const nilai = (b) => (jenis === 'pengadaan' ? Number(b.usulan) || 0 : Number(b.biaya) || 0)
+  const out = []
+  for (const [k, b] of mBaru) {
+    const l = mLama.get(k)
+    if (!l) out.push({ jenis: 'tambah', teks: ringkasBaris(b, jenis) })
+    else if (nilai(l) !== nilai(b) || (l.uraian || '') !== (b.uraian || '')) out.push({ jenis: 'ubah', teks: `${ringkasBaris(l, jenis)} → ${ringkasBaris(b, jenis)}` })
+  }
+  for (const [k, l] of mLama) if (!mBaru.has(k)) out.push({ jenis: 'hapus', teks: ringkasBaris(l, jenis) })
+  return out
+}
+
 // ---------------------------------------------------------------- usulan pengelolaan
 export const JENIS_USULAN = {
   psp: { nama: 'Penetapan Status Penggunaan', grup: 'Penggunaan' },
@@ -410,8 +445,10 @@ export function tarifSewaSederhana(nilaiBuku, durasiBulan, faktorPersen = 3.33) 
 }
 
 // ---------------------------------------------------------------- format
-export const rupiah = (n) =>
-  'Rp' + Math.round(Number(n) || 0).toLocaleString('id-ID')
+export const rupiah = (n) => {
+  const v = Math.round(Number(n) || 0)
+  return (v < 0 ? '-Rp' : 'Rp') + Math.abs(v).toLocaleString('id-ID')
+}
 
 export const tanggalID = (s) =>
   s ? new Date(s).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'

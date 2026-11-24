@@ -19,6 +19,29 @@ Kuasa Pengguna Barang pada satker simulasi; dosen berperan sebagai Pengelola Bar
 
 Deploy hosting: `npm run build && firebase deploy --only hosting` (atau Firebase App Hosting).
 
+## Pengujian
+
+- `npm test`: uji logika domain (cepat, tanpa Firebase).
+- `npm run test:emulator`: uji aturan keamanan (`firestore.rules`) dan alur end-to-end
+  (`src/lib/db.js` asli) terhadap Firebase Emulator. Membutuhkan Java 11+; emulator diunduh otomatis saat pertama kali dijalankan.
+  Jalankan setiap kali mengubah `firestore.rules` atau `src/lib/db.js`, sebelum `firebase deploy`.
+
+### Mencoba aplikasi tanpa proyek Firebase
+
+1. `npm run emulators` (Auth + Firestore lokal; antarmuka emulator di http://127.0.0.1:4000).
+2. Isi `.env.local` dengan `VITE_FIREBASE_API_KEY=demo`, `VITE_FIREBASE_PROJECT_ID=demo-simantap`,
+   `VITE_FIRESTORE_DB=siman-simulasi`, `VITE_USE_EMULATOR=true`, lalu `npm run dev` di terminal lain.
+3. Daftar akun, lalu ubah `role` menjadi `pengelola` lewat antarmuka emulator (tab Firestore).
+   Data emulator hilang saat emulator dimatikan.
+
+## Fitur utama
+
+- Penatausahaan: Daftar Aset & KIB, 29 jenis transaksi, persediaan (FIFO, opname), inventarisasi, LBKP, Neraca BMN, DBR, ekspor Excel/PDF.
+- Pengawasan: wasdal otomatis dengan skor kepatuhan; rekonsiliasi SIMAK–SAKTI dengan Berita Acara.
+- Perencanaan & pengelolaan: RKBMN (reviu APIP, penelaahan, usulan perubahan), usulan pengelolaan 13 jenis.
+- Pembelajaran: skenario kasus dengan kunci jawaban, penilaian otomatis per rubrik Sub-CPMK, rekap nilai Excel.
+- Lampiran dokumen sumber & foto (≤2 MB, disimpan di Firestore); impor kodefikasi barang resmi dari CSV (menu Referensi).
+
 ## Alur praktikum
 
 | Pertemuan | Menu |
