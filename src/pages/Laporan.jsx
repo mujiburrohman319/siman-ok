@@ -5,6 +5,8 @@ import { useCollection } from '../lib/hooks.js'
 import { AKUN, KONDISI, akunAset, hitungLBKP, hitungPenyusutan, hitungPenyusutanPerAkun, kelompokNeraca, rupiah, saldoDariAset, tanggalID } from '../lib/bmn.js'
 import PerluSatker from '../components/PerluSatker.jsx'
 import { neracaBMN } from '../lib/wasdal.js'
+import { lbkpPersediaan, nilaiPersediaan } from '../lib/persediaan.js'
+import { usePersediaan } from './Persediaan.jsx'
 import { Alert, Button, Card, PageHeader, Select, Table, Tabs, Td, TombolEkspor } from '../components/ui.jsx'
 
 const TABS = [
@@ -144,8 +146,13 @@ function LBKP() {
 
 function Neraca() {
   const { aset, transaksi } = useSatker()
+  const { barang, mutasi } = usePersediaan()
   const hariIni = new Date()
-  const n = useMemo(() => neracaBMN({ aset, transaksi, tanggal: hariIni }), [aset, transaksi]) // eslint-disable-line react-hooks/exhaustive-deps
+  const n = useMemo(() => {
+    const t = hariIni.toISOString().slice(0, 10)
+    const persediaan = { buku: lbkpPersediaan(barang, mutasi, '1900-01-01', t).reduce((s, r) => s + r.akhir, 0), daftar: nilaiPersediaan(barang) }
+    return neracaBMN({ aset, transaksi, persediaan, tanggal: hariIni })
+  }, [aset, transaksi, barang, mutasi]) // eslint-disable-line react-hooks/exhaustive-deps
   const selisih = n.totalDaftar - n.totalBuku
   const kop = useKop()
   const periode = `Per ${tanggalID(hariIni)}`
@@ -186,7 +193,7 @@ function Neraca() {
         {selisih
           ? <Alert tone="rose">Neraca menurut Buku Barang berbeda {rupiah(Math.abs(selisih))} dari Daftar Barang. Akibatnya nilai BMN di neraca tidak dapat diandalkan. Lihat menu Wasdal untuk menelusuri penyebabnya.</Alert>
           : <Alert tone="teal">Neraca menurut Buku Barang sama dengan Daftar Barang.</Alert>}
-        <p className="text-xs text-slate-500">"Buku Barang" disusun dari transaksi yang dibukukan; "Daftar Barang" dari kondisi aset saat ini. Akumulasi penyusutan dan amortisasi dihitung dari Daftar Barang. Persediaan diisi dari modul Persediaan.</p>
+        <p className="text-xs text-slate-500">"Buku Barang" disusun dari transaksi yang dibukukan; "Daftar Barang" dari kondisi aset saat ini. Akumulasi penyusutan dan amortisasi dihitung dari Daftar Barang. Persediaan: Buku = kartu mutasi, Daftar = saldo FIFO per barang.</p>
       </div>
     </Card>
   )

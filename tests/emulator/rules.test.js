@@ -51,6 +51,8 @@ beforeEach(async () => {
     await db.doc('satker/s1/rkbmn/2027-pengadaan').set({ status: 'draft', baris: [] })
     await db.doc('satker/s1/usulan/u1').set({ jenis: 'penghapusan', status: 'diajukan', asetIds: ['a1'] })
     await db.doc('satker/s1/pnbp/p1').set({ nilai: 10 })
+    await db.doc('satker/s1/persediaan/b1').set({ kode: '1.01.03.01.002', nama: 'Kertas', satuan: 'rim', saldoQty: 10, lapisan: [{ tanggal: '2026-01-01', qty: 10, harga: 50000 }] })
+    await db.doc('satker/s1/mutasiPersediaan/m0').set({ barangId: 'b1', jenis: 'saldo_awal', qty: 10, dibuatOleh: 'mhs1' })
     await db.doc('skenario/sk1').set({ kelasId: 'k1', status: 'terbit', judul: 'Kasus 1' })
     await db.doc('skenario/sk2').set({ kelasId: 'k1', status: 'draft', judul: 'Kasus 2' })
     await db.doc('skenario/sk3').set({ kelasId: 'k2', status: 'terbit', judul: 'Kelas lain' })
@@ -267,5 +269,35 @@ describe('skenario kasus & nilai', () => {
     await assertFails(mhs1().collection('skenario').add({ kelasId: 'k1', status: 'terbit' }))
     await assertSucceeds(dosen().doc('skenario/sk1/nilai/s2').set({ terbit: true }, { merge: true }))
     await assertSucceeds(dosen().doc('skenario/sk1/kunci/jawaban').set({ langkah: {} }))
+  })
+})
+
+describe('persediaan', () => {
+  function mutasi(db, { uid = 'mhs1', barangId = 'b1', patch = { saldoQty: 8, lapisan: [{ tanggal: '2026-01-01', qty: 8, harga: 50000 }] } } = {}) {
+    const m = db.collection('satker/s1/mutasiPersediaan').doc()
+    const b = db.batch()
+    b.set(m, { barangId, jenis: 'pemakaian', qty: 2, dibuatOleh: uid })
+    b.update(db.doc(`satker/s1/persediaan/${barangId}`), { ...patch, mutasiTerakhir: m.id })
+    return b.commit()
+  }
+  test('barang baru harus bersaldo nol', async () => {
+    await assertSucceeds(mhs1().collection('satker/s1/persediaan').add({ kode: 'x', nama: 'Map', satuan: 'buah', saldoQty: 0, lapisan: [] }))
+    await assertFails(mhs1().collection('satker/s1/persediaan').add({ kode: 'x', nama: 'Map', satuan: 'buah', saldoQty: 5, lapisan: [{ qty: 5, harga: 1 }] }))
+  })
+  test('saldo tidak dapat diubah langsung; nama boleh', async () => {
+    await assertFails(mhs1().doc('satker/s1/persediaan/b1').update({ saldoQty: 100 }))
+    await assertSucceeds(mhs1().doc('satker/s1/persediaan/b1').update({ nama: 'Kertas HVS A4' }))
+  })
+  test('mutasi berpasangan dengan perubahan saldo', () => assertSucceeds(mutasi(mhs1())))
+  test('mutasi lepas, atas nama orang lain, atau satker lain ditolak', async () => {
+    await assertFails(mhs1().collection('satker/s1/mutasiPersediaan').add({ barangId: 'b1', jenis: 'pemakaian', qty: 1, dibuatOleh: 'mhs1' }))
+    await assertFails(mutasi(mhs1(), { uid: 'apip1' }))
+    await assertFails(mutasi(mhs2(), { uid: 'mhs2' }))
+    await assertFails(mhs2().doc('satker/s1/persediaan/b1').get())
+  })
+  test('mutasi tidak dapat diubah/dihapus', async () => {
+    await assertFails(mhs1().doc('satker/s1/mutasiPersediaan/m0').update({ qty: 1 }))
+    await assertFails(dosen().doc('satker/s1/mutasiPersediaan/m0').delete())
+    await assertFails(dosen().doc('satker/s1/persediaan/b1').delete())
   })
 })

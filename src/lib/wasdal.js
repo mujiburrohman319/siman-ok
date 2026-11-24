@@ -189,6 +189,7 @@ export function skorKepatuhan(temuan) {
  * Persediaan (aset lancar) diisi dari modul persediaan bila ada.
  */
 export function neracaBMN({ aset = [], transaksi = [], persediaan = 0, tanggal = new Date() }) {
+  const psd = typeof persediaan === 'number' ? { buku: persediaan, daftar: persediaan } : persediaan
   const t = iso(tanggal)
   const buku = Object.fromEntries(hitungLBKP(transaksi, '1900-01-01', t).map((r) => [r.akun, r.saldoAkhir]))
   const daftar = saldoDariAset(aset)
@@ -203,7 +204,7 @@ export function neracaBMN({ aset = [], transaksi = [], persediaan = 0, tanggal =
   const jumlah = (l, k) => l.reduce((s, r) => s + r[k], 0)
 
   const kelompok = [
-    { nama: 'Aset Lancar', baris: [{ akun: 'Persediaan', buku: persediaan, daftar: persediaan }], pengurang: [] },
+    { nama: 'Aset Lancar', baris: [{ akun: 'Persediaan', buku: psd.buku, daftar: psd.daftar }], pengurang: [] },
     { nama: 'Aset Tetap', baris: tetap, pengurang: [{ akun: 'Akumulasi Penyusutan', nilai: -susutTetap }] },
     { nama: 'Aset Lainnya', baris: [atb, lain], pengurang: [{ akun: 'Akumulasi Amortisasi Aset Tak Berwujud', nilai: -amortisasi }] },
   ].map((k) => {

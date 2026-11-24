@@ -5,6 +5,7 @@ import {
 } from 'firebase/firestore'
 import { db } from './firebase.js'
 import { terapkanTransaksi, aksiPersetujuan, REFERENSI_DEFAULT, TransaksiError } from './bmn.js'
+import { PersediaanError, terapkanMutasi } from './persediaan.js'
 
 const col = (...p) => collection(db, ...p)
 
@@ -175,4 +176,40 @@ export async function simpanNilai(skenarioId, nilai, uid) {
     b.set(doc(db, 'skenario', skenarioId, 'nilai', satkerId), { ...v, dinilaiOleh: uid, updatedAt: serverTimestamp() }, { merge: true })
   }
   await b.commit()
+}
+
+// ---------------------------------------------------------------- Persediaan
+// Barang menyimpan saldo FIFO berjalan; setiap mutasi dibukukan atomik bersama perubahan saldo barang
+// (barang.mutasiTerakhir = id mutasi; ditegakkan firestore.rules). Mutasi tidak dapat diubah/dihapus.
+export async function buatBarangPersediaan(satkerId, { kode, nama, satuan }) {
+  return addDoc(col('satker', satkerId, 'persediaan'), { kode, nama, satuan, saldoQty: 0, lapisan: [], tglTerakhir: null, createdAt: serverTimestamp() })
+}
+
+export async function catatMutasiPersediaan({ satkerId, barangId, input, uid, sumber = null }) {
+  return runTransaction(db, async (tx) => {
+    const bRef = doc(db, 'satker', satkerId, 'persediaan', barangId)
+    const snap = await tx.get(bRef)
+    if (!snap.exists()) throw new PersediaanError('Barang persediaan tidak ditemukan')
+    const h = terapkanMutasi(snap.data(), input)
+    const mRef = doc(col('satker', satkerId, 'mutasiPersediaan'))
+    tx.update(bRef, { saldoQty: h.barang.saldoQty, lapisan: h.barang.lapisan, tglTerakhir: h.barang.tglTerakhir, mutasiTerakhir: mRef.id, updatedAt: serverTimestamp() })
+    tx.set(mRef, { ...h.mutasi, barangId, dibuatOleh: uid, sumber, createdAt: serverTimestamp() })
+    return mRef.id
+  })
+}
+
+/** Barang persediaan contoh dengan saldo awal, agar latihan opname dan pemakaian langsung dapat dikerjakan. */
+export async function isiPersediaanContoh(satkerId, uid) {
+  const tahun = new Date().getFullYear() - 1
+  const dokumen = { jenis: 'Dokumen Lainnya', nomor: `LBKP-PSD-${tahun}` }
+  const contoh = [
+    ['1.01.03.01.002', 'Kertas HVS A4 70 gram', 'rim', 40, 52_000],
+    ['1.01.03.01.001', 'Pulpen gel hitam', 'buah', 120, 4_500],
+    ['1.01.03.01.005', 'Tinta printer hitam', 'botol', 12, 95_000],
+    ['1.01.03.01.008', 'Cairan pembersih lantai', 'liter', 20, 18_000],
+  ]
+  for (const [kode, nama, satuan, qty, harga] of contoh) {
+    const r = await buatBarangPersediaan(satkerId, { kode, nama, satuan })
+    await catatMutasiPersediaan({ satkerId, barangId: r.id, uid, input: { jenis: 'saldo_awal', tanggal: `${tahun}-12-31`, qty, hargaSatuan: harga, dokumen, keterangan: 'Data contoh' } })
+  }
 }

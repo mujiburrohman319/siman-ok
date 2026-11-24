@@ -118,6 +118,29 @@ service cloud.firestore {
         allow delete: if isStaff();
       }
 
+      // Persediaan: saldo FIFO di dokumen barang hanya berubah bersama mutasi baru (pasangan mutasiTerakhir).
+      match /persediaan/{id} {
+        function lewatMutasi() {
+          let m = request.resource.data.get('mutasiTerakhir', null);
+          return m is string
+            && !exists(/databases/$(database)/documents/satker/$(s)/mutasiPersediaan/$(m))
+            && getAfter(/databases/$(database)/documents/satker/$(s)/mutasiPersediaan/$(m)).data.barangId == id;
+        }
+        allow read: if isStaff() || isMember(s);
+        allow create: if (isStaff() || isMember(s))
+          && request.resource.data.saldoQty == 0 && request.resource.data.lapisan.size() == 0;
+        allow update: if (isStaff() || isMember(s))
+          && (!berubah().hasAny(['saldoQty', 'lapisan', 'tglTerakhir', 'mutasiTerakhir', 'kode']) || lewatMutasi());
+        allow delete: if false;
+      }
+      match /mutasiPersediaan/{id} {
+        allow read: if isStaff() || isMember(s);
+        allow create: if (isStaff() || isMember(s))
+          && request.resource.data.dibuatOleh == request.auth.uid
+          && getAfter(/databases/$(database)/documents/satker/$(s)/persediaan/$(request.resource.data.barangId)).data.get('mutasiTerakhir', null) == id;
+        allow update, delete: if false;
+      }
+
       match /inventarisasi/{id} {
         allow read, write: if isStaff() || isMember(s);
       }
