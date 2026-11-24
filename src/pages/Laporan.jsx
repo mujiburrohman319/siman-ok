@@ -4,10 +4,12 @@ import { useSatker } from '../lib/satker.jsx'
 import { useCollection } from '../lib/hooks.js'
 import { AKUN, KONDISI, akunAset, hitungLBKP, hitungPenyusutan, hitungPenyusutanPerAkun, kelompokNeraca, rupiah, saldoDariAset, tanggalID } from '../lib/bmn.js'
 import PerluSatker from '../components/PerluSatker.jsx'
+import { neracaBMN } from '../lib/wasdal.js'
 import { Alert, Button, Card, PageHeader, Select, Table, Tabs, Td, TombolEkspor } from '../components/ui.jsx'
 
 const TABS = [
   ['lbkp', 'LBKP'],
+  ['neraca', 'Neraca BMN'],
   ['dbkp', 'DBKP'],
   ['buku', 'Buku Intra/Ekstrakomptabel'],
   ['dbr', 'DBR per ruangan'],
@@ -27,6 +29,7 @@ export default function Laporan() {
       <Tabs items={TABS} value={tab} onChange={setTab} />
       <PerluSatker>
         {tab === 'lbkp' && <LBKP />}
+        {tab === 'neraca' && <Neraca />}
         {tab === 'dbkp' && <DBKP />}
         {tab === 'buku' && <BukuIntraEkstra />}
         {tab === 'dbr' && <DBR />}
@@ -134,6 +137,56 @@ function LBKP() {
           ? <Alert tone="rose">Saldo akhir tidak sama dengan Daftar Barang untuk akun: {selisih.join(', ')}. Periksa transaksi koreksi.</Alert>
           : <Alert tone="teal">Cek silang lulus: saldo akhir LBKP sama dengan nilai Daftar Barang Kuasa Pengguna.</Alert>)}
         <p className="text-xs text-slate-500">Penyusutan dihitung garis lurus semesteran dari kondisi aset saat ini (penyederhanaan untuk pembelajaran).</p>
+      </div>
+    </Card>
+  )
+}
+
+function Neraca() {
+  const { aset, transaksi } = useSatker()
+  const hariIni = new Date()
+  const n = useMemo(() => neracaBMN({ aset, transaksi, tanggal: hariIni }), [aset, transaksi]) // eslint-disable-line react-hooks/exhaustive-deps
+  const selisih = n.totalDaftar - n.totalBuku
+  const kop = useKop()
+  const periode = `Per ${tanggalID(hariIni)}`
+  const barisEkspor = () => {
+    const out = []
+    for (const k of n.kelompok) {
+      out.push([k.nama.toUpperCase(), '', '', ''])
+      for (const b of k.baris) out.push([`   ${b.akun}`, b.buku, b.daftar, b.daftar - b.buku])
+      for (const p of k.pengurang) out.push([`   ${p.akun}`, p.nilai, p.nilai, 0])
+      out.push([`Jumlah ${k.nama}`, k.jumlahBuku, k.jumlahDaftar, k.jumlahDaftar - k.jumlahBuku])
+    }
+    return out
+  }
+  const ekspor = () => ({
+    ...kop('Ringkasan Neraca BMN', periode), sheet: 'Neraca BMN',
+    kolom: [{ label: 'Uraian' }, { label: 'Menurut Buku Barang', tipe: 'uang' }, { label: 'Menurut Daftar Barang', tipe: 'uang' }, { label: 'Selisih', tipe: 'uang' }],
+    baris: barisEkspor(),
+    total: ['JUMLAH ASET (BMN)', n.totalBuku, n.totalDaftar, selisih],
+  })
+  const Sel = ({ v, tebal }) => <Td right className={`${tebal ? 'font-semibold text-slate-900' : ''} ${v < 0 ? 'text-rose-700' : ''}`}>{rupiah(v)}</Td>
+  return (
+    <Card actions={<TombolEkspor nama={`Neraca BMN ${periode}`} laporan={ekspor} tandaTangan={TTD_KPB} />}>
+      <KopLaporan judul="Ringkasan Neraca BMN" periode={periode} />
+      <Table head={['Uraian', { label: 'Menurut Buku Barang', right: true }, { label: 'Menurut Daftar Barang', right: true }, { label: 'Selisih', right: true }]}
+        footer={<tr><Td>JUMLAH ASET (BMN)</Td><Sel v={n.totalBuku} tebal /><Sel v={n.totalDaftar} tebal /><Sel v={selisih} tebal /></tr>}>
+        {n.kelompok.flatMap((k) => [
+          <tr key={k.nama} className="bg-slate-50/60"><Td colSpan={4} className="font-semibold text-slate-900">{k.nama}</Td></tr>,
+          ...k.baris.map((b) => (
+            <tr key={k.nama + b.akun}><Td className="pl-6">{b.akun}</Td><Sel v={b.buku} /><Sel v={b.daftar} /><Td right className={b.daftar !== b.buku ? 'font-semibold text-rose-700' : 'text-slate-400'}>{rupiah(b.daftar - b.buku)}</Td></tr>
+          )),
+          ...k.pengurang.map((p) => (
+            <tr key={k.nama + p.akun}><Td className="pl-6 text-slate-500">{p.akun}</Td><Sel v={p.nilai} /><Sel v={p.nilai} /><Td right className="text-slate-400">{rupiah(0)}</Td></tr>
+          )),
+          <tr key={k.nama + 'j'}><Td className="font-medium">Jumlah {k.nama}</Td><Sel v={k.jumlahBuku} tebal /><Sel v={k.jumlahDaftar} tebal /><Sel v={k.jumlahDaftar - k.jumlahBuku} tebal /></tr>,
+        ])}
+      </Table>
+      <div className="mt-3 space-y-2 print:hidden">
+        {selisih
+          ? <Alert tone="rose">Neraca menurut Buku Barang berbeda {rupiah(Math.abs(selisih))} dari Daftar Barang. Akibatnya nilai BMN di neraca tidak dapat diandalkan. Lihat menu Wasdal untuk menelusuri penyebabnya.</Alert>
+          : <Alert tone="teal">Neraca menurut Buku Barang sama dengan Daftar Barang.</Alert>}
+        <p className="text-xs text-slate-500">"Buku Barang" disusun dari transaksi yang dibukukan; "Daftar Barang" dari kondisi aset saat ini. Akumulasi penyusutan dan amortisasi dihitung dari Daftar Barang. Persediaan diisi dari modul Persediaan.</p>
       </div>
     </Card>
   )

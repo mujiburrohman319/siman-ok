@@ -410,8 +410,10 @@ export function tarifSewaSederhana(nilaiBuku, durasiBulan, faktorPersen = 3.33) 
 }
 
 // ---------------------------------------------------------------- format
-export const rupiah = (n) =>
-  'Rp' + Math.round(Number(n) || 0).toLocaleString('id-ID')
+export const rupiah = (n) => {
+  const v = Math.round(Number(n) || 0)
+  return (v < 0 ? '-Rp' : 'Rp') + Math.abs(v).toLocaleString('id-ID')
+}
 
 export const tanggalID = (s) =>
   s ? new Date(s).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'

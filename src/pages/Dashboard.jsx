@@ -3,6 +3,8 @@ import { AlertTriangle, CheckCircle2, ChevronRight, ClipboardList, Landmark, Pie
 import { useAuth } from '../lib/auth.jsx'
 import { useSatker } from '../lib/satker.jsx'
 import { useCollection } from '../lib/hooks.js'
+import { useWasdal } from './Wasdal.jsx'
+import { TINGKAT, skorKepatuhan } from '../lib/wasdal.js'
 import { AKUN, akunAset, hitungPenyusutan, kelompokNeraca, rupiah } from '../lib/bmn.js'
 import PerluSatker from '../components/PerluSatker.jsx'
 import { Badge, Card, PageHeader, Stat, Table, Td } from '../components/ui.jsx'
@@ -37,15 +39,7 @@ function Isi() {
     }
   }).filter((r) => r.jumlah)
 
-  const tugas = []
-  const rbAktif = aset.filter((a) => a.status === 'aktif' && a.kondisi === 'RB')
-  if (rbAktif.length) tugas.push({ teks: `${rbAktif.length} aset berkondisi rusak berat belum direklasifikasi ke Daftar Barang Rusak Berat`, to: '/transaksi' })
-  const tanpaLokasi = aset.filter((a) => a.status === 'aktif' && !a.lokasiRuang)
-  if (tanpaLokasi.length) tugas.push({ teks: `${tanpaLokasi.length} aset belum memiliki lokasi ruangan (DBR tidak lengkap)`, to: '/aset' })
-  const kembali = rkbmn.data.filter((r) => r.status === 'dikembalikan')
-  if (kembali.length) tugas.push({ teks: `${kembali.length} RKBMN dikembalikan Pengelola Barang untuk direvisi`, to: '/rkbmn' })
-  const idle = aset.filter((a) => a.status === 'aktif' && a.statusPenggunaan === 'idle')
-  if (idle.length) tugas.push({ teks: `${idle.length} BMN idle — pertimbangkan usulan alih status atau penyerahan ke Pengelola`, to: '/usulan' })
+  const tugas = useWasdal()
   const menunggu = usulan.data.filter((u) => u.status === 'diajukan').length
 
   return (
@@ -70,17 +64,17 @@ function Isi() {
               </tr>
             ))}
           </Table>
-          <p className="mt-4 text-xs text-slate-400">Persediaan (aset lancar) belum dicakup versi ini; lihat backlog di CLAUDE.md.</p>
+          
         </Card>
 
-        <Card icon={AlertTriangle} title="Perlu ditindaklanjuti" desc={tugas.length ? `${tugas.length} temuan` : undefined}>
+        <Card icon={AlertTriangle} title="Perlu ditindaklanjuti" desc={`Skor kepatuhan ${skorKepatuhan(tugas)}/100 · ${tugas.length} temuan`} actions={tugas.length > 4 ? <Link to="/wasdal" className="text-xs font-medium text-brand-700 hover:underline">Lihat semua</Link> : null}>
           {tugas.length ? (
             <ul className="space-y-2 text-sm">
-              {tugas.map((t, i) => (
+              {tugas.slice(0, 4).map((t, i) => (
                 <li key={i}>
-                  <Link to={t.to} className="group flex items-start gap-3 rounded-xl border border-amber-200/80 bg-amber-50/70 px-3 py-2.5 text-amber-950 transition hover:border-amber-300 hover:bg-amber-50">
-                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" />
-                    <span className="flex-1 leading-snug">{t.teks}</span>
+                  <Link to={t.tautan} className="group flex items-start gap-3 rounded-xl border border-amber-200/80 bg-amber-50/70 px-3 py-2.5 text-amber-950 transition hover:border-amber-300 hover:bg-amber-50">
+                    <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${{ tinggi: 'bg-rose-500', sedang: 'bg-amber-500', rendah: 'bg-sky-500' }[t.tingkat]}`} title={`Risiko ${TINGKAT[t.tingkat]}`} />
+                    <span className="flex-1 leading-snug">{t.judul}{t.asetIds.length ? ` (${t.asetIds.length} NUP)` : ''}</span>
                     <ChevronRight size={16} className="mt-0.5 shrink-0 text-amber-600 transition group-hover:translate-x-0.5" />
                   </Link>
                 </li>
