@@ -294,3 +294,22 @@ describe('persediaan: saldo awal → pemakaian FIFO → opname → LBKP persedia
     await ditolak(updateDoc(doc(db, 'satker', s1.id, 'persediaan', kertas.id), { saldoQty: 1000 }))
   })
 })
+
+describe('usulan perubahan hasil penelaahan RKBMN', () => {
+  test('KPB mengajukan perubahan, dosen menyetujui → revisi ke-1', async () => {
+    const id = lib.rkbmnId(2027, 'pengadaan')
+    await masuk('mhs1')
+    const dok = { id, ...(await getDoc(doc(db, 'satker', s1.id, 'rkbmn', id))).data() }
+    await lib.simpanPerubahanRKBMN(s1.id, id, { status: 'diajukan', alasan: 'Tambahan pegawai', baris: [{ uraian: 'Laptop', usulan: 4 }] })
+    await ditolak(lib.simpanPerubahanRKBMN(s1.id, id, { status: 'draft', baris: [] }))
+    await masuk('dosen')
+    const terbaru = { id, ...(await getDoc(doc(db, 'satker', s1.id, 'rkbmn', id))).data() }
+    await lib.putusPerubahanRKBMN({ satkerId: s1.id, dok: terbaru, setuju: true, baris: terbaru.perubahan.baris, catatan: 'Sesuai', oleh: 'Dr. Dosen' })
+    await masuk('mhs1')
+    const akhir = (await getDoc(doc(db, 'satker', s1.id, 'rkbmn', id))).data()
+    assert.equal(akhir.revisi, 1)
+    assert.equal(akhir.baris[0].usulan, 4)
+    assert.deepEqual(akhir.riwayatRevisi[0].barisSebelum, dok.baris)
+    assert.equal(akhir.perubahan.status, 'disetujui')
+  })
+})

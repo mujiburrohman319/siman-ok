@@ -82,6 +82,28 @@ export async function simpanRKBMN(satkerId, id, data) {
   await setDoc(doc(db, 'satker', satkerId, 'rkbmn', id), { ...data, updatedAt: serverTimestamp() }, { merge: true })
 }
 
+/** KPB menyimpan/mengajukan Usulan Perubahan Hasil Penelaahan (field perubahan diganti utuh). */
+export async function simpanPerubahanRKBMN(satkerId, id, perubahan) {
+  await updateDoc(doc(db, 'satker', satkerId, 'rkbmn', id), { perubahan, updatedAt: serverTimestamp() })
+}
+
+/** Pengelola Barang memutus usulan perubahan. Bila disetujui, baris diganti dan nomor revisi bertambah. */
+export async function putusPerubahanRKBMN({ satkerId, dok, setuju, baris, catatan, oleh }) {
+  const waktu = new Date().toISOString()
+  const p = dok.perubahan || {}
+  const telaah = { catatan: catatan || '', oleh, tanggal: waktu }
+  const patch = setuju
+    ? {
+        baris,
+        revisi: (dok.revisi || 0) + 1,
+        riwayatRevisi: [...(dok.riwayatRevisi || []), { ke: (dok.revisi || 0) + 1, tanggal: waktu, alasan: p.alasan || '', barisSebelum: dok.baris || [] }],
+        perubahan: { ...p, status: 'disetujui', telaah },
+      }
+    : { perubahan: { ...p, status: 'ditolak', telaah } }
+  patch.riwayat = [...(dok.riwayat || []), { status: setuju ? 'perubahan_disetujui' : 'perubahan_ditolak', oleh, waktu, catatan: catatan || '' }]
+  await updateDoc(doc(db, 'satker', satkerId, 'rkbmn', dok.id), { ...patch, updatedAt: serverTimestamp() })
+}
+
 // ---------------------------------------------------------------- Usulan
 export async function ajukanUsulan(satkerId, data, uid) {
   return addDoc(col('satker', satkerId, 'usulan'), { ...data, status: 'diajukan', diajukanOleh: uid, createdAt: serverTimestamp() })

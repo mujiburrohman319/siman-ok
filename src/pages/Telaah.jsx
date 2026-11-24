@@ -4,22 +4,22 @@ import { db } from '../lib/firebase.js'
 import { useAuth } from '../lib/auth.jsx'
 import { useSatker } from '../lib/satker.jsx'
 import { useCollection } from '../lib/hooks.js'
-import { setujuiUsulan, simpanRKBMN, tolakUsulan } from '../lib/db.js'
-import { rupiah, tanggalID, validasiBarisPengadaan } from '../lib/bmn.js'
+import { putusPerubahanRKBMN, setujuiUsulan, simpanRKBMN, tolakUsulan } from '../lib/db.js'
+import { bandingkanBarisRKBMN, rupiah, tanggalID, validasiBarisPengadaan } from '../lib/bmn.js'
 import { Alert, Badge, Button, Card, Field, Input, Modal, PageHeader, Select, Table, Td, Textarea } from '../components/ui.jsx'
 import { useKonfirmasi, useToast } from '../components/umpan.jsx'
 
 /** Antrean lintas satker: dokumen berstatus tertentu di sub-koleksi semua satker. */
-function useAntrean(koleksi, status) {
+function useAntrean(koleksi, status, field = 'status') {
   const [data, setData] = useState([])
   useEffect(
     () =>
       onSnapshot(
-        query(collectionGroup(db, koleksi), where('status', '==', status)),
+        query(collectionGroup(db, koleksi), where(field, '==', status)),
         (s) => setData(s.docs.map((d) => ({ id: d.id, satkerId: d.ref.parent.parent.id, ...d.data() }))),
         () => setData([]),
       ),
-    [koleksi, status],
+    [koleksi, status, field],
   )
   return data
 }
@@ -28,6 +28,7 @@ export default function Telaah() {
   const satkerList = useCollection(['satker']).data
   const rkbmn = useAntrean('rkbmn', 'diajukan')
   const usulan = useAntrean('usulan', 'diajukan')
+  const perubahan = useAntrean('rkbmn', 'diajukan', 'perubahan.status')
   const [buka, setBuka] = useState(null) // {tipe, item}
   const nama = (id) => satkerList.find((s) => s.id === id)
   const label = (id) => { const s = nama(id); return s ? `${s.kode} · ${s.nama}` : id }
@@ -47,6 +48,18 @@ export default function Telaah() {
             ))}
           </Table>
         </Card>
+        <Card title={`Usulan perubahan hasil penelaahan RKBMN (${perubahan.length})`} className="xl:col-span-2">
+          <Table head={['Satker', 'Dokumen', 'Alasan', '']} empty={perubahan.length ? null : 'Tidak ada antrean.'}>
+            {perubahan.map((r) => (
+              <tr key={`${r.satkerId}-${r.id}-p`}>
+                <Td>{label(r.satkerId)}</Td>
+                <Td>RKBMN {r.jenis} TA {r.tahun}<span className="block text-xs text-slate-500">Revisi ke-{(r.revisi || 0) + 1}</span></Td>
+                <Td className="max-w-md text-sm">{r.perubahan?.alasan}</Td>
+                <Td><Button variant="secondary" onClick={() => setBuka({ tipe: 'perubahan', item: r })}>Telaah</Button></Td>
+              </tr>
+            ))}
+          </Table>
+        </Card>
         <Card title={`Usulan menunggu keputusan (${usulan.length})`}>
           <Table head={['Satker', 'Usulan', '']} empty={usulan.length ? null : 'Tidak ada antrean.'}>
             {usulan.map((u) => (
@@ -59,8 +72,9 @@ export default function Telaah() {
           </Table>
         </Card>
       </div>
-      <Modal open={!!buka} onClose={() => setBuka(null)} wide title={buka ? `${buka.tipe === 'rkbmn' ? 'Penelaahan RKBMN' : 'Keputusan usulan'} — ${label(buka.item.satkerId)}` : ''}>
+      <Modal open={!!buka} onClose={() => setBuka(null)} wide title={buka ? `${{ rkbmn: 'Penelaahan RKBMN', perubahan: 'Usulan Perubahan Hasil Penelaahan RKBMN', usulan: 'Keputusan usulan' }[buka.tipe]} — ${label(buka.item.satkerId)}` : ''}>
         {buka?.tipe === 'rkbmn' && <PanelRKBMN r={buka.item} satker={nama(buka.item.satkerId)} selesai={() => setBuka(null)} />}
+        {buka?.tipe === 'perubahan' && <PanelPerubahan r={buka.item} selesai={() => setBuka(null)} />}
         {buka?.tipe === 'usulan' && <PanelUsulan u={buka.item} satker={nama(buka.item.satkerId)} selesai={() => setBuka(null)} />}
       </Modal>
     </>
@@ -205,6 +219,50 @@ function PanelUsulan({ u, satker, selesai }) {
           toast.info('Usulan ditolak.')
           selesai()
         }}>Tolak</Button>
+      </div>
+    </div>
+  )
+}
+
+function PanelPerubahan({ r, selesai }) {
+  const { profil } = useAuth()
+  const toast = useToast()
+  const konfirmasi = useKonfirmasi()
+  const [catatan, setCatatan] = useState('')
+  const [err, setErr] = useState('')
+  const p = r.perubahan || {}
+  const beda = bandingkanBarisRKBMN(r.baris, p.baris, r.jenis)
+  const warna = { tambah: 'text-brand-700', ubah: 'text-amber-700', hapus: 'text-rose-700' }
+
+  async function putus(setuju) {
+    setErr('')
+    if (!setuju && !catatan) return setErr('Tuliskan alasan penolakan.')
+    if (!(await konfirmasi({
+      judul: setuju ? 'Setujui usulan perubahan?' : 'Tolak usulan perubahan?',
+      pesan: setuju ? `Baris RKBMN diganti sesuai usulan dan menjadi revisi ke-${(r.revisi || 0) + 1}. Baris sebelumnya tetap tersimpan di riwayat revisi.` : 'Hasil Penelaahan yang berlaku tidak berubah.',
+      ya: setuju ? 'Setujui perubahan' : 'Tolak', bahaya: !setuju,
+    }))) return
+    await putusPerubahanRKBMN({ satkerId: r.satkerId, dok: r, setuju, baris: (p.baris || []).map((b) => ({ ...b, keputusan: b.keputusan || { status: 'setuju' } })), catatan, oleh: profil.nama })
+    toast.sukses(setuju ? 'Perubahan Hasil Penelaahan RKBMN ditetapkan.' : 'Usulan perubahan ditolak.')
+    selesai()
+  }
+
+  return (
+    <div className="space-y-4">
+      <Alert tone="slate"><b>Alasan perubahan:</b> {p.alasan || '—'}</Alert>
+      <div>
+        <p className="mb-2 text-sm font-medium text-slate-700">Perubahan yang diusulkan</p>
+        {beda.length ? (
+          <ul className="space-y-1 text-sm">
+            {beda.map((d, i) => <li key={i} className={warna[d.jenis]}><Badge tone={{ tambah: 'teal', ubah: 'amber', hapus: 'rose' }[d.jenis]}>{d.jenis}</Badge> {d.teks}</li>)}
+          </ul>
+        ) : <p className="text-sm text-slate-500">Tidak ada perbedaan baris.</p>}
+      </div>
+      <Field label="Catatan penelaahan"><Textarea value={catatan} onChange={(e) => setCatatan(e.target.value)} /></Field>
+      {err && <Alert tone="rose">{err}</Alert>}
+      <div className="flex gap-2">
+        <Button onClick={() => putus(true)}>Setujui perubahan</Button>
+        <Button variant="danger" onClick={() => putus(false)}>Tolak</Button>
       </div>
     </div>
   )

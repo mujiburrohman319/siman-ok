@@ -3,9 +3,9 @@ import { Plus, Trash2 } from 'lucide-react'
 import { useAuth } from '../lib/auth.jsx'
 import { useSatker } from '../lib/satker.jsx'
 import { useDoc } from '../lib/hooks.js'
-import { rkbmnId, simpanRKBMN } from '../lib/db.js'
+import { rkbmnId, simpanPerubahanRKBMN, simpanRKBMN } from '../lib/db.js'
 import { KODE_BARANG } from '../data/kodeBarang.js'
-import { KONDISI, cekObjekPemeliharaan, rupiah, validasiBarisPengadaan } from '../lib/bmn.js'
+import { KONDISI, bandingkanBarisRKBMN, bolehUsulPerubahan, cekObjekPemeliharaan, rupiah, validasiBarisPengadaan } from '../lib/bmn.js'
 import PerluSatker from '../components/PerluSatker.jsx'
 import { Alert, Badge, Button, Card, Field, Input, PageHeader, Select, Table, Td, Textarea } from '../components/ui.jsx'
 import { useToast } from '../components/umpan.jsx'
@@ -103,6 +103,8 @@ function Dokumen({ tahun, jenis }) {
         </Card>
       )}
       {status === 'reviu_apip' && !isApip && !isStaff && <Alert tone="slate">Menunggu reviu oleh anggota yang ditunjuk sebagai APIP satker.</Alert>}
+
+      {status === 'disetujui' && <Perubahan dok={dok} />}
 
       {(dok?.reviuApip || dok?.riwayat?.length) && (
         <Card title="Jejak dokumen">
@@ -228,6 +230,60 @@ function TabelPemeliharaan({ baris, setBaris, edit }) {
       <Field label="" className="mt-3">
         <p className="text-sm text-slate-600">Total perkiraan biaya: <b>{rupiah(baris.reduce((s, b) => s + (Number(b.biaya) || 0), 0))}</b></p>
       </Field>
+    </Card>
+  )
+}
+
+/** Usulan Perubahan Hasil Penelaahan RKBMN (dalam tahun pelaksanaan anggaran). */
+function Perubahan({ dok }) {
+  const { isStaff, profil, ref } = useAuth()
+  const { satkerId } = useSatker()
+  const toast = useToast()
+  const p = dok.perubahan
+  const cek = bolehUsulPerubahan(dok, ref)
+  const [edit, setEdit] = useState(false)
+  const [baris, setBaris] = useState(p?.status === 'draft' ? p.baris : dok.baris || [])
+  const [alasan, setAlasan] = useState(p?.status === 'draft' ? p.alasan || '' : '')
+  const beda = bandingkanBarisRKBMN(dok.baris, baris, dok.jenis)
+
+  async function simpan(status) {
+    if (status === 'diajukan' && !alasan.trim()) return toast.galat('Tuliskan alasan perubahan.')
+    if (status === 'diajukan' && !beda.length) return toast.galat('Belum ada baris yang diubah.')
+    try {
+      await simpanPerubahanRKBMN(satkerId, dok.id, { status, alasan, baris: baris.map(({ keputusan: _k, ...b }) => b), oleh: profil.nama, tanggal: new Date().toISOString() })
+      toast.sukses(status === 'diajukan' ? 'Usulan perubahan diajukan ke Pengelola Barang.' : 'Draf usulan perubahan tersimpan.')
+      if (status === 'diajukan') setEdit(false)
+    } catch (e) {
+      toast.galat(e)
+    }
+  }
+
+  return (
+    <Card title="Usulan Perubahan Hasil Penelaahan" desc={dok.revisi ? `Berlaku: revisi ke-${dok.revisi}` : 'Belum pernah direvisi'}
+      actions={!isStaff && cek.boleh && !edit ? <Button variant="secondary" onClick={() => { setBaris(p?.status === 'draft' ? p.baris : dok.baris || []); setEdit(true) }}>{p?.status === 'draft' ? 'Lanjutkan draf' : 'Susun usulan perubahan'}</Button> : null}>
+      {p?.status === 'diajukan' && <Alert tone="slate">Usulan perubahan ({p.alasan}) sedang ditelaah Pengelola Barang.</Alert>}
+      {p?.status === 'ditolak' && !edit && <Alert tone="rose">Usulan perubahan terakhir ditolak: {p.telaah?.catatan}</Alert>}
+      {p?.status === 'disetujui' && !edit && <Alert tone="teal">Perubahan terakhir disetujui ({p.telaah?.oleh}): {p.telaah?.catatan || 'tanpa catatan'}</Alert>}
+      {!cek.boleh && p?.status !== 'diajukan' && <p className="text-sm text-slate-500">{cek.alasan.join('. ')}.</p>}
+      {edit && (
+        <div className="mt-2 space-y-4">
+          {dok.jenis === 'pengadaan' ? <TabelPengadaan baris={baris} setBaris={setBaris} edit /> : <TabelPemeliharaan baris={baris} setBaris={setBaris} edit />}
+          {beda.length > 0 && (
+            <ul className="space-y-1 rounded-lg bg-slate-50 p-3 text-sm">
+              {beda.map((d, i) => <li key={i}><Badge tone={{ tambah: 'teal', ubah: 'amber', hapus: 'rose' }[d.jenis]}>{d.jenis}</Badge> {d.teks}</li>)}
+            </ul>
+          )}
+          <Field label="Alasan perubahan"><Textarea value={alasan} onChange={(e) => setAlasan(e.target.value)} placeholder="mis. perubahan organisasi, kebijakan, atau kebutuhan mendesak" /></Field>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => simpan('draft')}>Simpan draf</Button>
+            <Button onClick={() => simpan('diajukan')}>Ajukan ke Pengelola Barang</Button>
+            <Button variant="ghost" onClick={() => setEdit(false)}>Batal</Button>
+          </div>
+        </div>
+      )}
+      {dok.riwayatRevisi?.length > 0 && (
+        <p className="mt-3 text-xs text-slate-500">Riwayat revisi: {dok.riwayatRevisi.map((x) => `ke-${x.ke} (${new Date(x.tanggal).toLocaleDateString('id-ID')})`).join(', ')}</p>
+      )}
     </Card>
   )
 }

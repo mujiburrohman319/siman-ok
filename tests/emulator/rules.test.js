@@ -301,3 +301,23 @@ describe('persediaan', () => {
     await assertFails(dosen().doc('satker/s1/persediaan/b1').delete())
   })
 })
+
+describe('usulan perubahan hasil penelaahan RKBMN', () => {
+  const r = (db) => db.doc('satker/s1/rkbmn/2027-pengadaan')
+  beforeEach(() => env.withSecurityRulesDisabled((ctx) => ctx.firestore().doc('satker/s1/rkbmn/2027-pengadaan').set({ status: 'disetujui', tahun: 2027, baris: [{ id: 'a', usulan: 2 }] })))
+  test('KPB mengajukan perubahan pada RKBMN yang ditetapkan', async () => {
+    await assertSucceeds(r(mhs1()).update({ perubahan: { status: 'diajukan', alasan: 'Kebutuhan bertambah', baris: [{ id: 'a', usulan: 3 }] } }))
+    await assertFails(r(mhs1()).update({ perubahan: { status: 'draft', baris: [] } })) // sedang ditelaah
+  })
+  test('KPB tidak dapat mengubah baris yang ditetapkan, menyetujui sendiri, atau mengisi telaah', async () => {
+    await assertFails(r(mhs1()).update({ baris: [{ id: 'a', usulan: 9 }] }))
+    await assertFails(r(mhs1()).update({ perubahan: { status: 'disetujui', baris: [] } }))
+    await assertFails(r(mhs1()).update({ perubahan: { status: 'diajukan', baris: [], telaah: { catatan: 'ok' } } }))
+    await assertFails(r(mhs2()).update({ perubahan: { status: 'diajukan', baris: [] } }))
+  })
+  test('dosen memutus dan antrean perubahan dapat di-query lintas satker', async () => {
+    await r(mhs1()).update({ perubahan: { status: 'diajukan', baris: [] } })
+    await assertSucceeds(dosen().collectionGroup('rkbmn').where('perubahan.status', '==', 'diajukan').get())
+    await assertSucceeds(r(dosen()).update({ baris: [], revisi: 1, perubahan: { status: 'disetujui', baris: [], telaah: { catatan: 'ok' } } }))
+  })
+})

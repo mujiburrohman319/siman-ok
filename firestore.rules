@@ -107,7 +107,15 @@ service cloud.firestore {
           || (isApip(s)
               && resource.data.status == 'reviu_apip'
               && request.resource.data.status in ['diajukan', 'draft']
-              && berubah().hasOnly(['status', 'reviuApip', 'riwayat', 'updatedAt']));
+              && berubah().hasOnly(['status', 'reviuApip', 'riwayat', 'updatedAt']))
+          // Usulan Perubahan Hasil Penelaahan: KPB hanya mengisi field perubahan (draf/diajukan),
+          // tidak saat usulan sebelumnya masih ditelaah, dan tidak dapat mengisi telaah sendiri.
+          || (isMember(s)
+              && resource.data.status == 'disetujui'
+              && berubah().hasOnly(['perubahan', 'updatedAt'])
+              && request.resource.data.perubahan.status in ['draft', 'diajukan']
+              && !('telaah' in request.resource.data.perubahan)
+              && resource.data.get('perubahan', {}).get('status', '') != 'diajukan');
         allow delete: if isStaff() || (isMember(s) && resource.data.status == 'draft');
       }
 

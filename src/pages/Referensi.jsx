@@ -15,7 +15,7 @@ export default function Referensi() {
   const ubahSbsk = (i, k, v) => setF({ ...f, sbsk: f.sbsk.map((s, j) => (j === i ? { ...s, [k]: k === 'standar' ? Number(v) : v } : s)) })
 
   async function simpan() {
-    await simpanReferensi({ batasKapitalisasi: f.batasKapitalisasi, batasPemeliharaan: Number(f.batasPemeliharaan), sbsk: f.sbsk })
+    await simpanReferensi({ batasKapitalisasi: f.batasKapitalisasi, batasPemeliharaan: Number(f.batasPemeliharaan), sbsk: f.sbsk, tahunAnggaran: f.tahunAnggaran ? Number(f.tahunAnggaran) : null })
     setPesan('Referensi tersimpan dan langsung berlaku untuk semua satker.')
   }
 
@@ -34,6 +34,9 @@ export default function Referensi() {
             </Field>
             <Field label="Objek RKBMN pemeliharaan, nilai per unit ≥ (Rp)" hint="PMK 150/2014: Rp100 juta">
               <Input type="number" value={f.batasPemeliharaan} onChange={(e) => setF({ ...f, batasPemeliharaan: e.target.value })} />
+            </Field>
+            <Field label="Tahun anggaran berjalan (simulasi)" hint={`Kosong = tahun kalender (${new Date().getFullYear()}). Menentukan kapan usulan perubahan RKBMN dapat diajukan.`}>
+              <Input type="number" min="2000" placeholder={String(new Date().getFullYear())} value={f.tahunAnggaran ?? ''} onChange={(e) => setF({ ...f, tahunAnggaran: e.target.value })} />
             </Field>
           </div>
           <p className="mt-3 text-xs text-slate-500">Nilai bawaan: Rp{REFERENSI_DEFAULT.batasKapitalisasi.peralatan.toLocaleString('id-ID')} dan Rp{REFERENSI_DEFAULT.batasKapitalisasi.gedung.toLocaleString('id-ID')}. Sesuaikan dengan ketentuan kapitalisasi terbaru yang Anda ajarkan. Perubahan hanya berlaku untuk transaksi berikutnya.</p>
