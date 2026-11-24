@@ -1,5 +1,5 @@
 import { Suspense, useState } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard, Boxes, ArrowLeftRight, FileBarChart, ClipboardList, Send, ScanSearch, Gavel, School, Settings2, LogOut, Menu, X,
   FlaskConical, Building2, ChevronsUpDown, ShieldCheck, BookOpenCheck, Package, GitCompareArrows, Users,
@@ -48,6 +48,7 @@ export function Logo({ besar }) {
 }
 
 export default function Layout() {
+  const lokasi = useLocation()
   const { profil, isStaff, keluar } = useAuth()
   const { satker, satkerId, setPilihan } = useSatker()
   const [buka, setBuka] = useState(false)
@@ -149,7 +150,10 @@ export default function Layout() {
         <main className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6 lg:p-8 print:max-w-none print:p-0">
           <BannerVerifikasi />
           <Suspense fallback={<Loading />}>
-            <Outlet />
+            {/* key per rute: animasi diputar ulang setiap berpindah halaman */}
+            <div key={lokasi.pathname} className="animasi-halaman">
+              <Outlet />
+            </div>
           </Suspense>
         </main>
       </div>

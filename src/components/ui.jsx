@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronLeft, ChevronRight, FileDown, FileSpreadsheet, Inbox, Loader2, X } from 'lucide-react'
 
 /** Gabung kelas; jika pemanggil memberi lebar sendiri (w-*), lebar bawaan dibuang. */
@@ -137,7 +138,8 @@ export function Modal({ open, onClose, title, children, wide }) {
     return () => { window.removeEventListener('keydown', h); document.body.style.overflow = prev }
   }, [open, onClose])
   if (!open) return null
-  return (
+  // Portal ke <body>: tidak terpengaruh transform/animasi elemen induk
+  return createPortal(
     <div
       className="fixed inset-0 z-40 flex animate-fade-in items-start justify-center overflow-y-auto bg-slate-950/50 p-3 pt-10 backdrop-blur-[2px] sm:p-6 sm:pt-16"
       onMouseDown={onClose}
@@ -154,7 +156,8 @@ export function Modal({ open, onClose, title, children, wide }) {
         </header>
         <div className="p-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
